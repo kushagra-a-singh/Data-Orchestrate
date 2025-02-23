@@ -1,0 +1,6 @@
+kafka:
+  bootstrap-servers: "localhost:9092"
+  topic:
+    file-upload: "file-upload-topic"
+    file-processed: "file-processed-topic"
+    file-error: "file-error-topic"

@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  file-upload-service:
+    build: ../backend/file-upload-service
+    ports:
+      - "8081:8081"
+    networks:
+      - mpjmp_network
+
+  processing-service:
+    build: ../backend/processing-service
+    ports:
+      - "8082:8082"
+    networks:
+      - mpjmp_network
+
+  orchestrator-service:
+    build: ../backend/orchestrator-service
+    ports:
+      - "8083:8083"
+    networks:
+      - mpjmp_network
+
+  notification-service:
+    build: ../backend/notification-service
+    ports:
+      - "8084:8084"
+    networks:
+      - mpjmp_network
+
+  storage-service:
+    build: ../backend/storage-service
+    ports:
+      - "8085:8085"
+    networks:
+      - mpjmp_network
+
+networks:
+  mpjmp_network:
+    driver: bridge
