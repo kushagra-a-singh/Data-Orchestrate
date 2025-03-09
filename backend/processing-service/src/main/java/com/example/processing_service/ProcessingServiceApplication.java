@@ -1,4 +1,4 @@
-package com.mpjmp.processing;
+package com.mpjmp.processing.service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
