@@ -1,4 +1,4 @@
-package com.mpjmp.storage;
+package com.mpjmp.storage.service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

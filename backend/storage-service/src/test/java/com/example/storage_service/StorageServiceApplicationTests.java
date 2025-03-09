@@ -1,4 +1,4 @@
-package com.example.storage_service;
+package com.mpjmp.storage.service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
