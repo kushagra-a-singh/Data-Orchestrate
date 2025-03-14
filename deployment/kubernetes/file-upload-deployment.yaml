@@ -14,6 +14,14 @@ spec:
     spec:
       containers:
       - name: file-upload-service
+        env:
+          - name: MONGODB_URI
+            valueFrom:
+              secretKeyRef:
+                name: mongodb-secret
+                key: MONGODB_URI
+          - name: UPLOAD_DIR
+            value: "uploads/"
         image: file-upload-service:latest
         ports:
         - containerPort: 8081
