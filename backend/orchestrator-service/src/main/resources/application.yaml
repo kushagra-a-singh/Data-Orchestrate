@@ -3,7 +3,8 @@ spring:
     name: orchestrator-service
 
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: localhost:9092
+
     consumer:
       group-id: orchestrator-group
       auto-offset-reset: earliest

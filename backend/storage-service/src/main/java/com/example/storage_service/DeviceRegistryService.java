@@ -1,7 +1,7 @@
-package com.mpjmp.storage.service;
+package com.example.storage_service;
 
-import com.mpjmp.storage.model.DeviceInfo;
-import com.mpjmp.storage.repository.DeviceRepository;
+import com.example.storage_service.model.DeviceInfo;
+import com.example.storage_service.repository.DeviceRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.net.InetAddress;
@@ -12,7 +12,7 @@ public class DeviceRegistryService {
     private final DeviceRepository deviceRepository;
 
     @Value("${server.port}")
-    private String serverPort;
+    private int serverPort;
 
     public DeviceRegistryService(DeviceRepository deviceRepository) {
         this.deviceRepository = deviceRepository;

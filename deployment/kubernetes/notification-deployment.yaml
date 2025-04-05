@@ -2,31 +2,192 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notification-service
+  labels:
+    app: notification-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: notification-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: notification-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "8084"
     spec:
       containers:
       - name: notification-service
-        image: notification-service:latest
+        env:
+          - name: SPRING_PROFILES_ACTIVE
+            value: "prod"
+          - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+            value: "kafka:9092"
+          - name: MONGODB_URI
+            valueFrom:
+              secretKeyRef:
+                name: mongodb-secret
+                key: MONGODB_URI
+          - name: SMTP_HOST
+            valueFrom:
+              secretKeyRef:
+                name: smtp-secret
+                key: SMTP_HOST
+          - name: SMTP_PORT
+            valueFrom:
+              secretKeyRef:
+                name: smtp-secret
+                key: SMTP_PORT
+          - name: SMTP_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: smtp-secret
+                key: SMTP_USERNAME
+          - name: SMTP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: smtp-secret
+                key: SMTP_PASSWORD
+          - name: JAVA_OPTS
+            value: "-Xms256m -Xmx512m -XX:+UseG1GC"
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        image: deployment-notification-service:latest
+        imagePullPolicy: Never
         ports:
-        - containerPort: 8084
+        - name: http
+          containerPort: 8084
+        volumeMounts:
+        - name: templates-volume
+          mountPath: /app/templates
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
+      volumes:
+      - name: templates-volume
+        configMap:
+          name: notification-templates
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: notification-service
+  labels:
+    app: notification-service
 spec:
   selector:
     app: notification-service
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 8084
       targetPort: 8084
   type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-templates
+data:
+  processing-complete.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background: #f5f5f5; }
+            .footer { text-align: center; padding: 20px; color: #757575; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Processing Complete</h1>
+            </div>
+            <div class="content">
+                <p>Hello ${userName},</p>
+                <p>Your file "${fileName}" has been successfully processed.</p>
+                <p>Processing details:</p>
+                <ul>
+                    <li>Status: ${status}</li>
+                    <li>Completion Time: ${completionTime}</li>
+                    <li>Processing Duration: ${duration}</li>
+                </ul>
+                <p>You can access your processed file through the application.</p>
+            </div>
+            <div class="footer">
+                <p>This is an automated message, please do not reply.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+  error-notification.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #f44336; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background: #f5f5f5; }
+            .footer { text-align: center; padding: 20px; color: #757575; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Processing Error</h1>
+            </div>
+            <div class="content">
+                <p>Hello ${userName},</p>
+                <p>We encountered an error while processing your file "${fileName}".</p>
+                <p>Error details:</p>
+                <ul>
+                    <li>Error Type: ${errorType}</li>
+                    <li>Time: ${errorTime}</li>
+                    <li>Message: ${errorMessage}</li>
+                </ul>
+                <p>Our team has been notified and will investigate the issue.</p>
+            </div>
+            <div class="footer">
+                <p>This is an automated message, please do not reply.</p>
+            </div>
+        </div>
+    </body>
+    </html>

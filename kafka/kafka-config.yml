@@ -1,6 +1,23 @@
 kafka:
-  bootstrap-servers: "localhost:9092"
+  bootstrap-servers: "kafka:9092"
   topic:
     file-upload: "file-upload-topic"
     file-processed: "file-processed-topic"
     file-error: "file-error-topic"
+    file-replication: "file-replication-topic"
+  producer:
+    retries: 3
+    batch-size: 16384
+    buffer-memory: 33554432
+    acks: all
+    compression-type: snappy
+  consumer:
+    group-id: mpjmp-consumer-group
+    auto-offset-reset: earliest
+    enable-auto-commit: false
+    max-poll-records: 500
+    isolation-level: read_committed
+  admin:
+    auto-create-topics: true
+    num-partitions: 3
+    replication-factor: 1

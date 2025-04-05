@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.mpjmp.gui.FileUploadController"
+      stylesheets="@../styles/main.css"
+      styleClass="root"
+      spacing="20">
+
+    <VBox styleClass="file-upload-container">
+        <Label text="Data Orchestration System" styleClass="title-label"/>
+        
+        <Label text="Upload and process your documents efficiently" styleClass="info-text"/>
+        
+        <VBox spacing="15">
+            <HBox styleClass="button-container">
+                <Button fx:id="chooseButton" text="Choose File" onAction="#chooseFile"/>
+                <Button fx:id="uploadButton" text="Upload" onAction="#uploadFile"/>
+            </HBox>
+            
+            <VBox spacing="5">
+                <Label fx:id="fileInfoLabel" styleClass="file-info-label"/>
+                <ProgressBar fx:id="progressBar" progress="0.0" maxWidth="Infinity"/>
+                <Label fx:id="statusLabel" styleClass="status-label"/>
+            </VBox>
+        </VBox>
+        
+        <Separator>
+            <VBox.margin>
+                <Insets top="10" bottom="10"/>
+            </VBox.margin>
+        </Separator>
+        
+        <VBox styleClass="info-container" spacing="5">
+            <Label text="Supported Formats:" styleClass="info-header"/>
+            <Label text="• PDF Documents (*.pdf)" styleClass="info-text"/>
+            <Label text="• Text Files (*.txt)" styleClass="info-text"/>
+            <Label text="• Word Documents (*.doc, *.docx)" styleClass="info-text"/>
+            <Label text="Maximum file size: 100MB" styleClass="info-text bold"/>
+        </VBox>
+    </VBox>
+
+</VBox> 

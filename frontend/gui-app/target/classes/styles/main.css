@@ -1,0 +1,119 @@
+.root {
+    -fx-background-color: #f5f5f5;
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
+    -fx-padding: 20px;
+}
+
+.action-button {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-padding: 8px 16px;
+    -fx-background-radius: 4px;
+    cursor: pointer;
+    -fx-cursor: hand;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 3, 0, 0, 1);
+    -fx-min-width: 100px;
+}
+
+.action-button:hover {
+    -fx-background-color: #1976D2;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 4, 0, 0, 2);
+    -fx-translate-y: -1px;
+}
+
+.action-button:pressed {
+    -fx-background-color: #1565C0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 2, 0, 0, 0);
+    -fx-translate-y: 0px;
+}
+
+.action-button:disabled {
+    -fx-background-color: #BDBDBD;
+    -fx-opacity: 0.7;
+    -fx-effect: none;
+}
+
+.status-label {
+    -fx-font-size: 14px;
+    -fx-padding: 5px 0;
+    -fx-min-height: 25px;
+}
+
+.file-info-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #616161;
+    -fx-padding: 2px 0;
+}
+
+.progress-bar {
+    -fx-pref-height: 8px;
+}
+
+.progress-bar > .bar {
+    -fx-background-color: #4CAF50;
+    -fx-background-radius: 4px;
+    -fx-background-insets: 0;
+}
+
+.progress-bar > .track {
+    -fx-background-color: #E0E0E0;
+    -fx-background-radius: 4px;
+    -fx-background-insets: 0;
+}
+
+.file-upload-container {
+    -fx-background-color: white;
+    -fx-padding: 25px;
+    -fx-spacing: 15px;
+    -fx-background-radius: 8px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 3);
+}
+
+.button-container {
+    -fx-spacing: 10px;
+    -fx-alignment: center-left;
+    -fx-padding: 5px 0;
+}
+
+.title-label {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #212121;
+    -fx-padding: 0 0 10px 0;
+}
+
+.info-container {
+    -fx-padding: 10px;
+    -fx-background-color: #F5F5F5;
+    -fx-background-radius: 4px;
+    -fx-border-color: #E0E0E0;
+    -fx-border-radius: 4px;
+}
+
+.info-header {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #424242;
+}
+
+.info-text {
+    -fx-font-size: 13px;
+    -fx-text-fill: #757575;
+    -fx-padding: 2px 0;
+}
+
+.info-text.bold {
+    -fx-font-weight: bold;
+    -fx-text-fill: #616161;
+}
+
+.separator {
+    -fx-opacity: 0.5;
+}
+
+/* Animation for progress bar */
+.progress-bar > .bar {
+    transition: width 0.25s ease-out;
+    -fx-transition: width 0.25s ease-out;
+} 

@@ -1,0 +1,104 @@
+UPLOAD_DIR: ./uploads/
+STORAGE_DIR: ./storage/
+PROCESSED_DIR: ./processed/
+
+server:
+  port: 8081
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  tomcat:
+    max-swallow-size: 100MB
+    max-http-form-post-size: 100MB
+    threads:
+      max: 200
+      min-spare: 20
+
+spring:
+  application:
+    name: file-upload-service
+  
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+      enabled: true
+  
+  data:
+    mongodb:
+      uri: "${MONGODB_URI}"
+      database: "mpjmp_db"
+      auto-index-creation: true
+  
+  kafka:
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      batch-size: 16384
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    
+    consumer:
+      group-id: file-upload-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.mpjmp.*"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    export:
+      prometheus:
+        enabled: true
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+app:
+  upload:
+    dir: uploads
+    max-file-size: 10485760  # 10MB in bytes
+    allowed-types:
+      - application/pdf
+      - image/jpeg
+      - image/png
+  storage:
+    dir: "${STORAGE_DIR:./storage/}"
+  processed:
+    dir: "${PROCESSED_DIR:./processed/}"
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.mpjmp: DEBUG
+    org.springframework.data.mongodb: INFO
+    org.springframework.kafka: INFO

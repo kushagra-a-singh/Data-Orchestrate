@@ -1,0 +1,4 @@
+com\example\common\model\FileMetadata$Status.class
+com\example\common\repository\FileMetadataRepository.class
+com\example\common\model\FileMetadata$FileMetadataBuilder.class
+com\example\common\model\FileMetadata.class

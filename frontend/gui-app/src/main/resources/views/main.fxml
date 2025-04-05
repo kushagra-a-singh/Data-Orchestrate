@@ -3,11 +3,12 @@
 <?import javafx.scene.layout.*?>
 
 <AnchorPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.mpjmp.gui.FileUploadController">
-    <VBox alignment="CENTER" spacing="10">
-        <Label text="Upload a File"/>
-        <Button text="Choose File" onAction="#chooseFile"/>
-        <Button text="Upload" onAction="#uploadFile"/>
-        <ProgressBar fx:id="progressBar" progress="0"/>
+    <VBox alignment="CENTER" spacing="10" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="10" AnchorPane.rightAnchor="10" AnchorPane.bottomAnchor="10">
+        <Label text="Upload a File" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+        <Button fx:id="chooseButton" text="Choose File" onAction="#chooseFile"/>
+        <Button fx:id="uploadButton" text="Upload" onAction="#uploadFile"/>
+        <Label fx:id="fileInfoLabel" text=""/>
+        <ProgressBar fx:id="progressBar" progress="0" maxWidth="Infinity"/>
         <Label fx:id="statusLabel" text="Status: Waiting"/>
     </VBox>
 </AnchorPane>

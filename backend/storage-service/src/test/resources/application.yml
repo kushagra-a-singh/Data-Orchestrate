@@ -1,0 +1,21 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/testdb
+      database: testdb
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: test-group
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+server:
+  port: 8084
+
+file:
+  storage-dir: target/test-storage
+
+device:
+  id: test-device-1 
