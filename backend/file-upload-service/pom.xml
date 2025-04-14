@@ -11,24 +11,24 @@
 		<relativePath/>
 	</parent>
 
-	<groupId>com.mpjmp</groupId>
+	<groupId>com.dataorchestrate</groupId>
 	<artifactId>file-upload-service</artifactId>
 	<version>1.0.0</version>
 
 	<name>file-upload-service</name>
-	<description>File Upload Service for MPJ-MP</description>
+	<description>File Upload Service for Data Orchestrate</description>
 
 	<properties>
 		<java.version>17</java.version>
 		<spring-cloud.version>2023.0.0</spring-cloud.version>
-		<start-class>com.mpjmp.fileupload.FileUploadApplication</start-class>
+		<start-class>com.dataorchestrate.fileupload.FileUploadApplication</start-class>
 	</properties>
 
 	<dependencies>
 		<dependency>
-			<groupId>com.mpjmp</groupId>
+			<groupId>com.dataorchestrate</groupId>
 			<artifactId>common-utils</artifactId>
-			<version>1.0.0</version>
+			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

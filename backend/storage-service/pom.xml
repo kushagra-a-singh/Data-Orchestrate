@@ -11,12 +11,12 @@
 		<relativePath/>
 	</parent>
 
-	<groupId>com.mpjmp</groupId>
+	<groupId>com.dataorchestrate</groupId>
 	<artifactId>storage-service</artifactId>
 	<version>1.0.0</version>
 
 	<name>storage-service</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Storage Service for Data Orchestrate</description>
 
 	<properties>
 		<java.version>17</java.version>
@@ -25,9 +25,9 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>com.mpjmp</groupId>
+			<groupId>com.dataorchestrate</groupId>
 			<artifactId>common-utils</artifactId>
-			<version>1.0.0</version>
+			<version>${project.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
