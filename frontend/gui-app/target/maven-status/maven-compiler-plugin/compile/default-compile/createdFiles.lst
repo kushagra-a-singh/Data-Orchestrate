@@ -1,5 +1,5 @@
+com\mpjmp\gui\WebSocketClient$1.class
 com\mpjmp\gui\api\ProgressTrackingService.class
-com\mpjmp\gui\WebSocketClient$WebSocketListener.class
 com\mpjmp\gui\api\FileUploadService.class
 com\mpjmp\gui\FileUploadController.class
 com\mpjmp\gui\WebSocketClient.class

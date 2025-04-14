@@ -2,21 +2,26 @@ package com.mpjmp.gui;
 
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import java.io.IOException;
 
 public class Main extends Application {
+
     @Override
-    public void start(Stage stage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/views/main.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 600, 400);
-        stage.setTitle("Distributed File Processor");
-        stage.setScene(scene);
-        stage.show();
+    public void start(Stage primaryStage) throws Exception {
+        // Get the WebSocket client instance but don't connect yet
+        // This allows the application to start even if the notification service is down
+        WebSocketClient.getInstance();
+        
+        // Load the main FXML view
+        Parent root = FXMLLoader.load(getClass().getResource("/views/main.fxml"));
+        primaryStage.setTitle("MPJ-MP Data Orchestrator");
+        primaryStage.setScene(new Scene(root));
+        primaryStage.show();
     }
 
     public static void main(String[] args) {
-        launch();
+        launch(args);
     }
 }

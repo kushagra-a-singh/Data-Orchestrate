@@ -1,13 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Text?>
+<?import javafx.geometry.Insets?>
 
-<AnchorPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.mpjmp.gui.FileUploadController">
-    <VBox alignment="CENTER" spacing="10">
-        <Label text="Upload a File"/>
-        <Button text="Choose File" onAction="#chooseFile"/>
-        <Button text="Upload" onAction="#uploadFile"/>
-        <ProgressBar fx:id="progressBar" progress="0"/>
-        <Label fx:id="statusLabel" text="Status: Waiting"/>
+<VBox xmlns:fx="http://javafx.com/fxml" 
+      fx:controller="com.mpjmp.gui.FileUploadController"
+      style="-fx-background-color: #f5f5f5;"
+      spacing="20" alignment="CENTER" 
+      prefWidth="600" prefHeight="400">
+    
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <!-- Header -->
+    <Text text="Orchestrate System" style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+    
+    <!-- Main Content -->
+    <VBox spacing="15" style="-fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" 
+          alignment="CENTER" maxWidth="500">
+        <padding>
+            <Insets top="30" right="30" bottom="30" left="30"/>
+        </padding>
+
+        <!-- File Selection Area -->
+        <VBox spacing="10" alignment="CENTER">
+            <Label text="Select a file to upload" style="-fx-font-size: 16px;"/>
+            <Button text="Choose File" onAction="#chooseFile" 
+                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20 10 20;"/>
+        </VBox>
+
+        <!-- Upload Button -->
+        <Button fx:id="uploadButton" text="Upload File" onAction="#uploadFile" 
+                style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20 10 20;"/>
+
+        <!-- Progress Section -->
+        <VBox spacing="5" alignment="CENTER" minWidth="300">
+            <ProgressBar fx:id="progressBar" progress="0" 
+                        style="-fx-accent: #2196F3;"
+                        prefWidth="300"/>
+            <Label fx:id="statusLabel" text="Status: Waiting for file selection" 
+                   style="-fx-text-fill: #666666;"/>
+        </VBox>
     </VBox>
-</AnchorPane>
+
+    <!-- Footer -->
+    <Text text="MPJ | Data Orchestrate" style="-fx-font-size: 12px; -fx-fill: #666666;"/>
+</VBox>

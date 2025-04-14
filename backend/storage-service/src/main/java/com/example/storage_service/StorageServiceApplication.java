@@ -1,20 +1,13 @@
-package com.mpjmp.storage;
+package com.example.storage_service;
 
-import com.mpjmp.storage.service.DeviceRegistryService;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
 @SpringBootApplication
+@EnableMongoRepositories(basePackages = "com.example.storage_service.repository")
 public class StorageServiceApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(StorageServiceApplication.class, args);
-    }
-
-    @Bean
-    CommandLineRunner run(DeviceRegistryService deviceRegistryService) {
-        return args -> deviceRegistryService.registerDevice();
     }
 }
