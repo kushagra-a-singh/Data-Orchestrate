@@ -28,6 +28,19 @@ public class FileUploadService {
             formData.append("Content-Disposition: form-data; name=\"file\"; filename=\"").append(fileName).append("\"\r\n");
             formData.append("Content-Type: application/octet-stream\r\n\r\n");
             
+            // Add additional form fields
+            formData.append("\r\n--").append(boundary).append("\r\n");
+            formData.append("Content-Disposition: form-data; name=\"uploadedBy\"\r\n\r\n");
+            formData.append(System.getProperty("user.name")).append("\r\n");
+            
+            formData.append("--").append(boundary).append("\r\n");
+            formData.append("Content-Disposition: form-data; name=\"deviceName\"\r\n\r\n");
+            formData.append(System.getenv("COMPUTERNAME")).append("\r\n");
+            
+            formData.append("--").append(boundary).append("\r\n");
+            formData.append("Content-Disposition: form-data; name=\"deviceIp\"\r\n\r\n");
+            formData.append(System.getenv("COMPUTERNAME")).append("\r\n");
+            
             // Combine form data with file content
             byte[] formDataBytes = formData.toString().getBytes();
             byte[] boundaryBytes = ("\r\n--" + boundary + "--\r\n").getBytes();

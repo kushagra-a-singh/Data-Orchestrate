@@ -68,6 +68,24 @@ public class FileSyncService {
         }
     }
 
+    @KafkaListener(topics = "file.processed", groupId = "sync-group")
+    public void handleFileProcessed(String message) {
+        try {
+            Map<String, Object> event = objectMapper.readValue(message, new com.fasterxml.jackson.core.type.TypeReference<HashMap<String, Object>>() {});
+            String fileId = (String) event.get("fileId");
+            String fileName = (String) event.get("fileName");
+            String sourceDeviceId = (String) event.get("deviceId");
+            if (deviceId.equals(sourceDeviceId)) {
+                return;
+            }
+            downloadFile(fileId, fileName, sourceDeviceId);
+            fileVersions.put(fileId, System.currentTimeMillis());
+            log.info("File processed and synchronized: {} from device: {}", fileName, sourceDeviceId);
+        } catch (Exception e) {
+            log.error("Error handling file processed for sync", e);
+        }
+    }
+
     @Retryable(
         value = {Exception.class},
         maxAttempts = 3,

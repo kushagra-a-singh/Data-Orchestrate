@@ -21,7 +21,7 @@
 	<properties>
 		<java.version>17</java.version>
 		<spring-cloud.version>2023.0.0</spring-cloud.version>
-		<start-class>com.dataorchestrate.fileupload.FileUploadApplication</start-class>
+		<start-class>com.mpjmp.fileupload.FileUploadApplication</start-class>
 	</properties>
 
 	<dependencies>

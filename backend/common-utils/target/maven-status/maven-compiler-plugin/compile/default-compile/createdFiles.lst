@@ -1,3 +1,4 @@
+com\dataorchestrate\common\DeviceIdentifier.class
+com\mpjmp\common\model\ProcessingStatus.class
 com\mpjmp\common\config\KafkaConfig.class
 com\mpjmp\common\model\FileMetadata.class
-com\mpjmp\common\model\ProcessingStatus.class

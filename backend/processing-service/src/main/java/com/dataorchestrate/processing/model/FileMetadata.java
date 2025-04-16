@@ -16,13 +16,24 @@ public class FileMetadata {
     private String fileType;
     private long fileSize;
     private String deviceId;
+    private String deviceName;
+    private String status;
     private String uploadedBy;
     private LocalDateTime uploadTime;
     private LocalDateTime processTime;
+    private String sizeFormatted;
+    private String originalFileName;
+    private String contentType;
+    private String errorMessage;
+    private long version;
     private String extractedText;
     private Map<String, Object> metadata;
     private String storagePath;
+    private String uploadPath;
+    private String processedPath;
+    private LocalDateTime processedAt;
     private boolean isCompressed;
     private String compressionType;
     private long compressedSize;
-} 
+    private String deviceIp;
+}

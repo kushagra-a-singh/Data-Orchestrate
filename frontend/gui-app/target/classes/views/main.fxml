@@ -4,47 +4,45 @@
 <?import javafx.scene.text.Text?>
 <?import javafx.geometry.Insets?>
 
-<VBox xmlns:fx="http://javafx.com/fxml" 
+<BorderPane xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.mpjmp.gui.FileUploadController"
-      style="-fx-background-color: #f5f5f5;"
-      spacing="20" alignment="CENTER" 
-      prefWidth="600" prefHeight="400">
-    
-    <padding>
-        <Insets top="20" right="20" bottom="20" left="20"/>
-    </padding>
-
-    <!-- Header -->
-    <Text text="Orchestrate System" style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
-    
+      style="-fx-background-color: linear-gradient(to bottom,#1a1a1a,#23272f);"
+      prefWidth="1100" prefHeight="700">
     <!-- Main Content -->
-    <VBox spacing="15" style="-fx-background-color: white; -fx-background-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" 
-          alignment="CENTER" maxWidth="500">
-        <padding>
-            <Insets top="30" right="30" bottom="30" left="30"/>
-        </padding>
-
-        <!-- File Selection Area -->
-        <VBox spacing="10" alignment="CENTER">
-            <Label text="Select a file to upload" style="-fx-font-size: 16px;"/>
-            <Button text="Choose File" onAction="#chooseFile" 
-                    style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20 10 20;"/>
+    <center>
+        <VBox spacing="20" alignment="CENTER" style="-fx-background-color: transparent;">
+            <Text text="File Manager" style="-fx-font-size: 38px; -fx-font-family: 'Segoe UI Semibold'; -fx-font-weight: bold; -fx-fill: linear-gradient(to bottom,#3f8efc,#43b581); -fx-effect: dropshadow(gaussian, #23272f, 8, 0.5, 0, 2);"/>
+            <!-- Drag and Drop Area -->
+            <StackPane fx:id="dragDropArea" alignment="CENTER" maxWidth="600" maxHeight="140"
+                style="-fx-background-color: rgba(60,60,80,0.60); -fx-background-radius: 30; -fx-border-color: linear-gradient(to bottom,#3f8efc,#43b581); -fx-border-width: 2.5; -fx-border-radius: 30; -fx-effect: dropshadow(gaussian, #3f8efc, 32, 0.7, 0, 0);">
+                <VBox spacing="8" alignment="CENTER">
+                    <Label text="Drag &amp; Drop any file here" style="-fx-font-size: 20px; -fx-font-family: 'Segoe UI'; -fx-text-fill: #e0e0e0; -fx-effect: dropshadow(gaussian, #222, 3, 0.15, 0, 1);"/>
+                    <Label text="or" style="-fx-font-size: 12px; -fx-text-fill: #b0b0b0;"/>
+                    <HBox spacing="14" alignment="CENTER">
+                        <Button text="📂  Choose File" onAction="#chooseFile" style="-fx-background-color: linear-gradient(to right,#3f8efc,#43b581); -fx-text-fill: white; -fx-font-size: 16px; -fx-background-radius: 13; -fx-padding: 10 24 10 24; -fx-effect: dropshadow(gaussian, #3f8efc, 8, 0.18, 0, 1);"/>
+                        <Button text="❌  Clear" onAction="#clearFile" style="-fx-background-color: #fc3f3f; -fx-text-fill: white; -fx-font-size: 16px; -fx-background-radius: 13; -fx-padding: 10 24 10 24; -fx-effect: dropshadow(gaussian, #fc3f3f, 8, 0.18, 0, 1);"/>
+                    </HBox>
+                </VBox>
+            </StackPane>
+            <Button fx:id="uploadButton" text="⬆️  Upload File" onAction="#uploadFile"
+                style="-fx-background-color: linear-gradient(to right,#43b581,#3f8efc); -fx-text-fill: white; -fx-font-size: 16px; -fx-font-family: 'Segoe UI Semibold'; -fx-background-radius: 12; -fx-padding: 10 32 10 32; -fx-effect: dropshadow(gaussian, #43b581, 10, 0.2, 0, 1);"/>
+            <VBox spacing="8" alignment="CENTER" minWidth="350">
+                <ProgressBar fx:id="progressBar" progress="0" style="-fx-accent: #3f8efc; -fx-background-radius: 8;" prefWidth="350"/>
+                <Label fx:id="statusLabel" text="Status: Waiting for file selection" style="-fx-text-fill: #b0b0b0; -fx-font-size: 14px;"/>
+            </VBox>
+            <!-- Notification Center -->
+            <VBox spacing="8" alignment="TOP_CENTER"
+                style="-fx-background-color: rgba(40,40,60,0.85); -fx-background-radius: 18; -fx-border-color: #3f8efc; -fx-border-radius: 18; -fx-effect: dropshadow(gaussian, #3f8efc, 12, 0.18, 0, 1);"
+                maxWidth="600" maxHeight="180">
+                <Label text="Notifications" style="-fx-font-size: 16px; -fx-font-family: 'Segoe UI Semibold'; -fx-font-weight: bold; -fx-text-fill: linear-gradient(to right,#3f8efc,#43b581);"/>
+                <ListView fx:id="notificationList" style="-fx-background-radius: 14; -fx-font-size: 14px; -fx-background-color: #181a20; -fx-text-fill: #fff;" maxHeight="120"/>
+            </VBox>
         </VBox>
-
-        <!-- Upload Button -->
-        <Button fx:id="uploadButton" text="Upload File" onAction="#uploadFile" 
-                style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 20 10 20;"/>
-
-        <!-- Progress Section -->
-        <VBox spacing="5" alignment="CENTER" minWidth="300">
-            <ProgressBar fx:id="progressBar" progress="0" 
-                        style="-fx-accent: #2196F3;"
-                        prefWidth="300"/>
-            <Label fx:id="statusLabel" text="Status: Waiting for file selection" 
-                   style="-fx-text-fill: #666666;"/>
-        </VBox>
-    </VBox>
-
+    </center>
     <!-- Footer -->
-    <Text text="MPJ | Data Orchestrate" style="-fx-font-size: 12px; -fx-fill: #666666;"/>
-</VBox>
+    <bottom>
+        <HBox alignment="CENTER" style="-fx-background-color: #23272f;">
+            <Text text="MPJ | Data Orchestrate" style="-fx-font-size: 13px; -fx-fill: #fff; -fx-font-family: 'Segoe UI', 'Arial';"/>
+        </HBox>
+    </bottom>
+</BorderPane>

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
 
 @Data
 @Document(collection = "file_metadata")
@@ -22,6 +23,7 @@ public class FileMetadata {
     private String uploadedBy;
     private String deviceName;
     private String deviceIp;
+    private String deviceId;
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Asia/Kolkata")
     private LocalDateTime uploadedAt;
@@ -31,6 +33,18 @@ public class FileMetadata {
     
     private String errorMessage;
     private long version;
+    private String extractedText;
+    private Map<String, Object> metadata;
+    private String fileId;
+    private String fileType;
+    private long fileSize;
+    private String uploadPath;
+    private String processedPath;
+    private String storagePath;
+    private LocalDateTime processedTime;
+    private boolean isCompressed;
+    private String compressionType;
+    private long compressedSize;
 
     public void setSize(long size) {
         this.size = size;

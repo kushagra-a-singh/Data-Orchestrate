@@ -1,25 +1,29 @@
-package com.mpjmp.processing.kafka;
+package com.dataorchestrate.processing.kafka;
 
-import com.mpjmp.processing.service.FileProcessingService;
-import lombok.RequiredArgsConstructor;
+import com.dataorchestrate.processing.service.FileProcessingService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.stereotype.Component;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Service;
 
 @Slf4j
-@Component
-@RequiredArgsConstructor
+@Service
 public class ProcessingRequestConsumer {
 
     private final FileProcessingService fileProcessingService;
 
+    @Autowired
+    public ProcessingRequestConsumer(FileProcessingService fileProcessingService) {
+        this.fileProcessingService = fileProcessingService;
+    }
+
     @KafkaListener(
-        topics = "${kafka.topic.processing-request}",
-        groupId = "${spring.kafka.consumer.group-id}",
+        topics = "${app.kafka.topics.processing.request}",
+        groupId = "${app.kafka.groups.processing}",
         containerFactory = "kafkaListenerContainerFactory"
     )
     @Retryable(
@@ -37,4 +41,4 @@ public class ProcessingRequestConsumer {
             topic, partition, offset, message);
         fileProcessingService.processFile(message);
     }
-} 
+}

@@ -3,6 +3,7 @@ package com.dataorchestrate.processing;
 import com.dataorchestrate.common.DeviceIdentifier;
 import com.dataorchestrate.processing.model.FileMetadata;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,8 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Service
 public class ProcessingService {
     private static final Logger logger = LoggerFactory.getLogger(ProcessingService.class);
@@ -39,70 +42,67 @@ public class ProcessingService {
     private final String processingDir;
     private final MongoTemplate mongoTemplate;
     private final Tika tika;
+    private final ObjectMapper objectMapper;
     
     @Autowired
     public ProcessingService(
             KafkaTemplate<String, String> kafkaTemplate,
             DeviceIdentifier deviceIdentifier,
             MongoTemplate mongoTemplate,
-            @Value("${file.processing.directory}") String processingDir) {
+            @Value("${file.processing.directory}") String processingDir,
+            ObjectMapper objectMapper) {
         this.kafkaTemplate = kafkaTemplate;
         this.deviceIdentifier = deviceIdentifier;
         this.mongoTemplate = mongoTemplate;
         this.processingDir = processingDir;
         this.tika = new Tika();
+        this.objectMapper = objectMapper;
         logger.info("Initializing ProcessingService for device: {}", deviceIdentifier.getDeviceId());
         createProcessingDirectory();
     }
     
-    public void processFile(String fileId, String fileName, String uploadedBy) {
+    public void processFile(String fileId, String fileName, String uploadedBy) throws java.io.IOException {
         String deviceId = deviceIdentifier.getDeviceId();
-        logger.info("Processing file {} for device {}", fileName, deviceId);
-        
+        String deviceName = deviceIdentifier.getDeviceId(); // Or getName() if available
+        Path filePath = Paths.get(processingDir, deviceId, fileId + "_" + fileName);
+        File file = filePath.toFile();
+        String fileType = tika.detect(file);
+        FileMetadata metadata = new FileMetadata();
+        metadata.setFileId(fileId);
+        metadata.setFileName(fileName);
+        metadata.setFileType(fileType);
+        metadata.setFileSize(file.length());
+        metadata.setDeviceId(deviceId);
+        metadata.setDeviceName(deviceName);
+        metadata.setUploadedBy(uploadedBy);
+        metadata.setUploadTime(LocalDateTime.now());
+        metadata.setStoragePath(filePath.toString());
         try {
-            Path filePath = Paths.get(processingDir, deviceId, fileId + "_" + fileName);
-            File file = filePath.toFile();
-            
-            // Detect file type
-            String fileType = tika.detect(file);
-            logger.info("Detected file type: {} for file: {}", fileType, fileName);
-            
-            // Create metadata
-            FileMetadata metadata = new FileMetadata();
-            metadata.setFileId(fileId);
-            metadata.setFileName(fileName);
-            metadata.setFileType(fileType);
-            metadata.setFileSize(file.length());
-            metadata.setDeviceId(deviceId);
-            metadata.setUploadedBy(uploadedBy);
-            metadata.setUploadTime(LocalDateTime.now());
-            metadata.setStoragePath(filePath.toString());
-            
-            // Process based on file type
-            if (fileType.startsWith("image/")) {
-                processImage(file, metadata);
-            } else if (fileType.equals("application/pdf")) {
+            if (fileType.equals("application/pdf")) {
                 processPdf(file, metadata);
+            } else if (fileType.startsWith("image/")) {
+                processImage(file, metadata);
             } else if (fileType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
                 processDocx(file, metadata);
-            } else if (fileType.equals("application/vnd.ms-excel") || 
-                      fileType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
+            } else if (fileType.equals("application/vnd.ms-excel") || fileType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                 processExcel(file, metadata);
             } else {
-                // For other file types, just compress and store
                 compressAndStore(file, metadata);
             }
-            
-            // Save metadata to MongoDB
-            mongoTemplate.save(metadata);
-            
-            // Send notification
-            kafkaTemplate.send("file.processed", 
-                String.format("File %s processed by device %s", fileName, deviceId));
-            
-            logger.info("File {} processed successfully", fileName);
+            metadata.setStatus("PROCESSED");
+            try {
+                kafkaTemplate.send("file.processed", objectMapper.writeValueAsString(metadata));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                logger.error("Failed to serialize metadata for processed file event", e);
+            }
         } catch (Exception e) {
-            logger.error("Error processing file {}: {}", fileName, e.getMessage());
+            metadata.setStatus("FAILED");
+            mongoTemplate.save(metadata);
+            try {
+                kafkaTemplate.send("file.processed", objectMapper.writeValueAsString(metadata));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+                logger.error("Failed to serialize metadata for failed file event", ex);
+            }
         }
     }
     
@@ -128,11 +128,18 @@ public class ProcessingService {
             PDFTextStripper stripper = new PDFTextStripper();
             String text = stripper.getText(document);
             metadata.setExtractedText(text);
-            
+            if (text != null && !text.isEmpty()) {
+                logger.info("PDF extracted text (first 100 chars): {}", text.substring(0, Math.min(100, text.length())));
+            } else {
+                logger.warn("No text extracted from PDF: {}", file.getAbsolutePath());
+            }
             // Store additional metadata
             Map<String, Object> additionalMetadata = new HashMap<>();
             additionalMetadata.put("pageCount", document.getNumberOfPages());
             metadata.setMetadata(additionalMetadata);
+            // Persist metadata after extraction
+            mongoTemplate.save(metadata);
+            logger.info("Saved FileMetadata with extractedText for file: {}", file.getAbsolutePath());
         }
     }
     

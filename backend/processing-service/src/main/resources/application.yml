@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: processing-service
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+      database: processing_db
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: processing-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+app:
+  kafka:
+    topics:
+      file-deletion: file-deletion-topic
+      processing.request: processing-request-topic
+    groups:
+      file-deletion: processing-service-file-deletion
+      processing: processing-service-processing
+
+logging:
+  level:
+    org.springframework.data.mongodb: DEBUG
+    org.apache.kafka: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

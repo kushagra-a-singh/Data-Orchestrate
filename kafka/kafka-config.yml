@@ -3,4 +3,16 @@ kafka:
   topic:
     file-upload: "file-upload-topic"
     file-processed: "file-processed-topic"
+    file-processing: "file-processing"
+    file-storage: "file-storage"
+    file-deletion: "file-deletion"
+    file-status: "file-status"
+    processing-request: "processing-request"
     file-error: "file-error-topic"
+    notifications: "notifications"
+    raw-data: "raw-data"
+    processed-data: "processed-data"
+    file-replication: "file-replication-topic"
+    file-deleted: "file-deleted-topic"
+    file-sync: "file-sync-topic"
+    

@@ -1,5 +1,6 @@
 package com.mpjmp.fileupload.service;
 
+import com.dataorchestrate.common.DeviceIdentifier;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mpjmp.fileupload.model.FileMetadata;
 import com.mpjmp.fileupload.repository.FileMetadataRepository;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,53 +60,51 @@ public class FileUploadService {
     private long retryDelay;
 
     public FileMetadata uploadFile(MultipartFile file, String uploadedBy, String deviceName, String deviceIp) throws IOException {
-        // Create upload directory if it doesn't exist
-        Path uploadPath = Paths.get(uploadDir);
+        DeviceIdentifier deviceIdentifier = new DeviceIdentifier();
+        String dynamicDeviceId = deviceIdentifier.getDeviceId();
+        String dynamicDeviceName = deviceIdentifier.getDeviceId(); // Or getName() if available
+        String dynamicDeviceIp = deviceIp != null ? deviceIp : InetAddress.getLocalHost().getHostAddress();
+        Path uploadPath = Paths.get(uploadDir, dynamicDeviceId);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
-
-        // Generate unique filename
         String originalFilename = file.getOriginalFilename();
         String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         String fileName = UUID.randomUUID().toString() + fileExtension;
-
-        // Save file with retry
         saveFileWithRetry(file, uploadPath, fileName);
-
-        // Create and save metadata
+        Path savedFilePath = uploadPath.resolve(fileName);
+        if (Files.exists(savedFilePath)) {
+            log.info("File saved successfully at: {}", savedFilePath.toAbsolutePath());
+        } else {
+            log.error("File was NOT saved at: {}", savedFilePath.toAbsolutePath());
+        }
         FileMetadata metadata = new FileMetadata();
         metadata.setFileName(fileName);
         metadata.setOriginalFileName(originalFilename);
         metadata.setContentType(file.getContentType());
         metadata.setSize(file.getSize());
-        metadata.setStatus("PENDING");
+        metadata.setStatus("UPLOADED");
         metadata.setUploadedBy(uploadedBy);
-        metadata.setDeviceName(deviceName);
-        metadata.setDeviceIp(deviceIp);
+        metadata.setDeviceName(dynamicDeviceName);
+        metadata.setDeviceId(dynamicDeviceId);
+        metadata.setDeviceIp(dynamicDeviceIp);
         metadata.setUploadedAt(LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
-        
+        metadata.setStoragePath(savedFilePath.toAbsolutePath().toString());
         FileMetadata savedMetadata = fileMetadataRepository.save(metadata);
-
         try {
-            // Send file upload event to Kafka with retry
             sendFileUploadEventWithRetry(savedMetadata, originalFilename, file, uploadedBy);
-            
-            // Only update status to UPLOADED if Kafka event was sent successfully
             savedMetadata.setStatus("UPLOADED");
             savedMetadata = fileMetadataRepository.save(savedMetadata);
-            
-            // Send notification with retry
             sendNotificationWithRetry("SUCCESS", "File uploaded successfully: " + originalFilename);
+            log.info("Notification sent for file upload: {}", originalFilename);
         } catch (Exception e) {
-            // If Kafka event fails, mark as failed
             savedMetadata.setStatus("FAILED");
             savedMetadata.setErrorMessage("Failed to process file: " + e.getMessage());
             savedMetadata = fileMetadataRepository.save(savedMetadata);
             sendNotificationWithRetry("ERROR", "Failed to process file: " + e.getMessage());
+            log.error("Notification sent for FAILED file upload: {}", originalFilename);
             throw new RuntimeException("Failed to process file", e);
         }
-
         return savedMetadata;
     }
 
@@ -179,7 +179,7 @@ public class FileUploadService {
             }
 
             // Delete the physical file
-            Path filePath = Paths.get(uploadDir, metadata.getFileName());
+            Path filePath = Paths.get(uploadDir, metadata.getDeviceId(), metadata.getFileName());
             Files.deleteIfExists(filePath);
 
             // Delete metadata from MongoDB
@@ -298,4 +298,4 @@ public class FileUploadService {
     public FileMetadata updateFileMetadata(FileMetadata metadata) {
         return fileMetadataRepository.save(metadata);
     }
-} 
+}

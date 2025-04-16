@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Builder
@@ -21,6 +22,21 @@ public class FileMetadata {
     private String storagePath;
     private LocalDateTime uploadTime;
     private LocalDateTime processedTime;
+    private String deviceId;
+    private String deviceName;
     private String status;
+    private String uploadedBy;
+    private LocalDateTime uploadedAt;
+    private LocalDateTime processedAt;
+    private String extractedText;
+    private Map<String, Object> metadata;
+    private String contentType;
+    private String originalFileName;
+    private boolean isCompressed;
+    private String compressionType;
+    private long compressedSize;
+    private String deviceIp;
+    private String sizeFormatted;
+    private long version;
     private String errorMessage;
-} 
+}

@@ -18,24 +18,11 @@ public class NotificationService {
         logger.info("Initializing NotificationService for device: {}", deviceIdentifier.getDeviceId());
     }
     
-    @KafkaListener(topics = "file.processed", groupId = "notification-group")
-    public void handleFileProcessed(String message) {
+    @KafkaListener(topics = {"file.uploaded", "file.processed", "file.synced"}, groupId = "notification-group")
+    public void handleNotification(String message) {
         String deviceId = deviceIdentifier.getDeviceId();
         logger.info("Device {} received notification: {}", deviceId, message);
-        // Handle notification (e.g., send to UI, store in database)
-    }
-    
-    @KafkaListener(topics = "file.uploaded", groupId = "notification-group")
-    public void handleFileUploaded(String message) {
-        String deviceId = deviceIdentifier.getDeviceId();
-        logger.info("Device {} received upload notification: {}", deviceId, message);
-        // Handle upload notification
-    }
-    
-    @KafkaListener(topics = "file.synced", groupId = "notification-group")
-    public void handleFileSynced(String message) {
-        String deviceId = deviceIdentifier.getDeviceId();
-        logger.info("Device {} received sync notification: {}", deviceId, message);
-        // Handle sync notification
+        // Forward notification to GUI (WebSocket or REST call)
+        // Add your notification forwarding logic here
     }
 } 

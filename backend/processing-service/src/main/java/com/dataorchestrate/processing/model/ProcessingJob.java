@@ -1,4 +1,4 @@
-package com.mpjmp.processing.model;
+package com.dataorchestrate.processing.model;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
