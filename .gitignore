@@ -1,2 +1,4 @@
 uploads/*
 .envlogs/*.log 
+logs/*.log
+.env
