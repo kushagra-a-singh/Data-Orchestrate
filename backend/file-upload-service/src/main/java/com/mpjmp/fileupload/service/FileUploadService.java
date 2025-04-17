@@ -2,10 +2,14 @@ package com.mpjmp.fileupload.service;
 
 import com.dataorchestrate.common.DeviceIdentifier;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mpjmp.fileupload.kafka.ReplicationEvent;
+import com.mpjmp.fileupload.kafka.ReplicationProducer;
 import com.mpjmp.fileupload.model.FileMetadata;
+import com.mpjmp.fileupload.repository.DeviceRepository;
 import com.mpjmp.fileupload.repository.FileMetadataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -37,6 +41,10 @@ public class FileUploadService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final MongoTemplate mongoTemplate;
+    @Autowired
+    private ReplicationProducer replicationProducer;
+    @Autowired
+    private DeviceRepository deviceRepository;
 
     @Value("${app.upload.dir}")
     private String uploadDir;
@@ -59,17 +67,39 @@ public class FileUploadService {
     @Value("${app.retry.delay:5000}")
     private long retryDelay;
 
+    @Value("${server.port}")
+    private int serverPort;
+
     public FileMetadata uploadFile(MultipartFile file, String uploadedBy, String deviceName, String deviceIp) throws IOException {
         DeviceIdentifier deviceIdentifier = new DeviceIdentifier();
         String dynamicDeviceId = deviceIdentifier.getDeviceId();
-        String dynamicDeviceName = deviceIdentifier.getDeviceId(); // Or getName() if available
+        String dynamicDeviceName = deviceIdentifier.getDeviceName(); // Use getDeviceName() instead of getDeviceId()
         String dynamicDeviceIp = deviceIp != null ? deviceIp : InetAddress.getLocalHost().getHostAddress();
+        
+        // Add null checks to prevent NullPointerException
+        if (uploadDir == null || uploadDir.isEmpty()) {
+            uploadDir = "uploads"; // Default directory if not configured
+            log.warn("Upload directory not configured, using default: {}", uploadDir);
+        }
+        
+        if (dynamicDeviceId == null || dynamicDeviceId.isEmpty()) {
+            dynamicDeviceId = "unknown-device"; // Default device ID if not available
+            log.warn("Device ID is null or empty, using default: {}", dynamicDeviceId);
+        }
+        
         Path uploadPath = Paths.get(uploadDir, dynamicDeviceId);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
+        
         String originalFilename = file.getOriginalFilename();
-        String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        if (originalFilename == null || originalFilename.isEmpty()) {
+            originalFilename = "unnamed-file.bin";
+            log.warn("Original filename is null or empty, using default: {}", originalFilename);
+        }
+        
+        String fileExtension = originalFilename.contains(".") ? 
+            originalFilename.substring(originalFilename.lastIndexOf(".")) : ".bin";
         String fileName = UUID.randomUUID().toString() + fileExtension;
         saveFileWithRetry(file, uploadPath, fileName);
         Path savedFilePath = uploadPath.resolve(fileName);
@@ -97,6 +127,23 @@ public class FileUploadService {
             savedMetadata = fileMetadataRepository.save(savedMetadata);
             sendNotificationWithRetry("SUCCESS", "File uploaded successfully: " + originalFilename);
             log.info("Notification sent for file upload: {}", originalFilename);
+
+            // --- Replication Event Publishing ---
+            List<String> allDeviceIds = deviceRepository.findAll().stream()
+                .map(d -> d.getDeviceId())
+                .filter(id -> !id.equals(metadata.getDeviceId()))
+                .toList();
+            String downloadUrl = "http://" + metadata.getDeviceIp() + ":" + serverPort + "/api/files/download/" + metadata.getDeviceId() + "/" + metadata.getFileName();
+            ReplicationEvent replicationEvent = new ReplicationEvent();
+            replicationEvent.setFileId(savedMetadata.getId());
+            replicationEvent.setFileName(savedMetadata.getFileName());
+            replicationEvent.setUploaderDeviceId(savedMetadata.getDeviceId());
+            replicationEvent.setUploaderDeviceName(savedMetadata.getDeviceName());
+            replicationEvent.setDownloadUrl(downloadUrl);
+            replicationEvent.setTargetDeviceIds(allDeviceIds);
+            replicationEvent.setStatus("INITIATED");
+            replicationProducer.sendReplicationEvent("file-replication", replicationEvent);
+            log.info("Replication event sent for file {} to devices {}", savedMetadata.getFileName(), allDeviceIds);
         } catch (Exception e) {
             savedMetadata.setStatus("FAILED");
             savedMetadata.setErrorMessage("Failed to process file: " + e.getMessage());

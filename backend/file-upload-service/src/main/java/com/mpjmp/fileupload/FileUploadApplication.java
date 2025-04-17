@@ -4,8 +4,10 @@ import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.mpjmp.fileupload"})
+@EnableMongoRepositories(basePackages = {"com.mpjmp.fileupload.repository"})
 public class FileUploadApplication {
 
     public static void main(String[] args) {
@@ -25,4 +27,4 @@ public class FileUploadApplication {
                 .ignoreIfMissing()
                 .load();
     }
-} 
+}

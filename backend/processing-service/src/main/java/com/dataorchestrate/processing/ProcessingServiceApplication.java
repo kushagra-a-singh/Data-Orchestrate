@@ -9,9 +9,9 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 @SpringBootApplication(scanBasePackages = {"com.dataorchestrate.processing", "com.dataorchestrate.common"})
 @EnableKafka
 @EnableRetry
-@EnableMongoRepositories(basePackages = "com.dataorchestrate.processing.repository")
+@EnableMongoRepositories(basePackages = {"com.dataorchestrate.processing.repository", "com.dataorchestrate.common"})
 public class ProcessingServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(ProcessingServiceApplication.class, args);
     }
-} 
+}

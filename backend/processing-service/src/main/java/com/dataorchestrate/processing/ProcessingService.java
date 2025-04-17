@@ -63,9 +63,15 @@ public class ProcessingService {
     
     public void processFile(String fileId, String fileName, String uploadedBy) throws java.io.IOException {
         String deviceId = deviceIdentifier.getDeviceId();
-        String deviceName = deviceIdentifier.getDeviceId(); // Or getName() if available
+        String deviceName = deviceIdentifier.getDeviceName();
         Path filePath = Paths.get(processingDir, deviceId, fileId + "_" + fileName);
         File file = filePath.toFile();
+        
+        if (!file.exists()) {
+            logger.error("File not found at path: {}", filePath);
+            throw new FileNotFoundException("File not found: " + filePath);
+        }
+        
         String fileType = tika.detect(file);
         FileMetadata metadata = new FileMetadata();
         metadata.setFileId(fileId);
@@ -77,6 +83,15 @@ public class ProcessingService {
         metadata.setUploadedBy(uploadedBy);
         metadata.setUploadTime(LocalDateTime.now());
         metadata.setStoragePath(filePath.toString());
+        
+        // Create data directory structure if it doesn't exist
+        Path dataDir = Paths.get("data");
+        Path deviceDataDir = dataDir.resolve(deviceId);
+        if (!Files.exists(deviceDataDir)) {
+            Files.createDirectories(deviceDataDir);
+            logger.info("Created data directory for device: {}", deviceDataDir);
+        }
+        
         try {
             if (fileType.equals("application/pdf")) {
                 processPdf(file, metadata);
@@ -89,19 +104,56 @@ public class ProcessingService {
             } else {
                 compressAndStore(file, metadata);
             }
+            
+            // Copy the processed file to the data directory
+            Path targetPath = deviceDataDir.resolve(fileName);
+            Files.copy(file.toPath(), targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            logger.info("Copied processed file to data directory: {}", targetPath);
+            
+            // Update metadata with the new storage path
+            metadata.setStoragePath(targetPath.toString());
             metadata.setStatus("PROCESSED");
+            metadata.setProcessedTime(LocalDateTime.now());
+            
+            // Save metadata to MongoDB
+            mongoTemplate.save(metadata);
+            logger.info("Saved metadata for processed file: {}", fileName);
+            
             try {
-                kafkaTemplate.send("file.processed", objectMapper.writeValueAsString(metadata));
-            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                logger.error("Failed to serialize metadata for processed file event", e);
+                // Send notification about successful processing
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("type", "SUCCESS");
+                notification.put("message", "File processed successfully: " + fileName);
+                notification.put("fileId", fileId);
+                notification.put("deviceId", deviceId);
+                notification.put("timestamp", LocalDateTime.now().toString());
+                
+                String notificationJson = objectMapper.writeValueAsString(notification);
+                kafkaTemplate.send("notifications", notificationJson);
+                logger.info("Sent processing success notification for file: {}", fileName);
+            } catch (Exception e) {
+                logger.error("Failed to send notification: {}", e.getMessage());
             }
         } catch (Exception e) {
-            metadata.setStatus("FAILED");
+            logger.error("Error processing file: {}", e.getMessage(), e);
+            metadata.setStatus("ERROR");
+            metadata.setErrorMessage(e.getMessage());
             mongoTemplate.save(metadata);
+            
             try {
-                kafkaTemplate.send("file.processed", objectMapper.writeValueAsString(metadata));
-            } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
-                logger.error("Failed to serialize metadata for failed file event", ex);
+                // Send notification about processing failure
+                Map<String, Object> notification = new HashMap<>();
+                notification.put("type", "ERROR");
+                notification.put("message", "File processing failed: " + fileName + " - " + e.getMessage());
+                notification.put("fileId", fileId);
+                notification.put("deviceId", deviceId);
+                notification.put("timestamp", LocalDateTime.now().toString());
+                
+                String notificationJson = objectMapper.writeValueAsString(notification);
+                kafkaTemplate.send("notifications", notificationJson);
+                logger.info("Sent processing error notification for file: {}", fileName);
+            } catch (Exception ex) {
+                logger.error("Failed to send notification: {}", ex.getMessage());
             }
         }
     }
@@ -126,17 +178,44 @@ public class ProcessingService {
     private void processPdf(File file, FileMetadata metadata) throws Exception {
         try (PDDocument document = PDDocument.load(file)) {
             PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            stripper.setStartPage(1);
+            stripper.setEndPage(document.getNumberOfPages());
+            
             String text = stripper.getText(document);
             metadata.setExtractedText(text);
+            
             if (text != null && !text.isEmpty()) {
                 logger.info("PDF extracted text (first 100 chars): {}", text.substring(0, Math.min(100, text.length())));
             } else {
                 logger.warn("No text extracted from PDF: {}", file.getAbsolutePath());
+                // Try alternative extraction method
+                BodyContentHandler handler = new BodyContentHandler(-1); // -1 means no limit
+                org.apache.tika.metadata.Metadata tikaMetadata = new org.apache.tika.metadata.Metadata();
+                try (FileInputStream stream = new FileInputStream(file)) {
+                    new AutoDetectParser().parse(stream, handler, tikaMetadata);
+                    String tikaText = handler.toString();
+                    if (tikaText != null && !tikaText.isEmpty()) {
+                        metadata.setExtractedText(tikaText);
+                        logger.info("Tika extracted text (first 100 chars): {}", 
+                            tikaText.substring(0, Math.min(100, tikaText.length())));
+                    }
+                }
             }
+            
             // Store additional metadata
             Map<String, Object> additionalMetadata = new HashMap<>();
             additionalMetadata.put("pageCount", document.getNumberOfPages());
             metadata.setMetadata(additionalMetadata);
+            
+            // Save extracted text to a separate file in the data directory
+            Path dataDir = Paths.get("data", metadata.getDeviceId());
+            Files.createDirectories(dataDir);
+            
+            Path textFilePath = dataDir.resolve(metadata.getFileName() + ".txt");
+            Files.write(textFilePath, metadata.getExtractedText().getBytes());
+            logger.info("Saved extracted text to: {}", textFilePath);
+            
             // Persist metadata after extraction
             mongoTemplate.save(metadata);
             logger.info("Saved FileMetadata with extractedText for file: {}", file.getAbsolutePath());

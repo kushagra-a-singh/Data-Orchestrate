@@ -1,4 +1,9 @@
 com\dataorchestrate\common\DeviceIdentifier.class
-com\mpjmp\common\model\ProcessingStatus.class
 com\mpjmp\common\config\KafkaConfig.class
+com\dataorchestrate\common\Device.class
+com\dataorchestrate\common\SequenceGenerator.class
+com\mpjmp\common\model\ProcessingStatus.class
+com\dataorchestrate\common\DeviceRepository.class
 com\mpjmp\common\model\FileMetadata.class
+com\dataorchestrate\common\SequenceGenerator$DatabaseSequence.class
+com\dataorchestrate\common\DeviceCleanupService.class

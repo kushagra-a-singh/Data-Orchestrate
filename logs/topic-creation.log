@@ -1,0 +1,13 @@
+^CTerminate batch job (Y/N)? 
+^CTerminate batch job (Y/N)? 
+^C[2025-04-17 23:00:47,460] WARN [AdminClient clientId=adminclient-1] Connection to node -1 (localhost/127.0.0.1:9092) could not be established. Node may not be available. (org.apache.kafka.clients.NetworkClient)
+[2025-04-17 23:00:47,569] WARN [AdminClient clientId=adminclient-1] Connection to node -1 (localhost/127.0.0.1:9092) could not be established. Node may not be available. (org.apache.kafka.clients.NetworkClient)
+[2025-04-17 23:00:47,679] WARN [AdminClient clientId=adminclient-1] Connection to node -1 (localhost/127.0.0.1:9092) could not be established. Node may not be available. (org.apache.kafka.clients.NetworkClient)
+Terminate batch job (Y/N)? 
+^CError while executing topic command : Topic 'raw-data' already exists.
+[2025-04-17 23:01:06,996] ERROR org.apache.kafka.common.errors.TopicExistsException: Topic 'raw-data' already exists.
+ (org.apache.kafka.tools.TopicCommand)
+^CTerminate batch job (Y/N)? 
+^CTerminate batch job (Y/N)? 
+^CTerminate batch job (Y/N)? 
+^C^CTerminate batch job (Y/N)? 

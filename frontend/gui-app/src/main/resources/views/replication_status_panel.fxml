@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml" spacing="8" alignment="CENTER" style="-fx-background-color: #181a20; -fx-background-radius: 14;">
+    <Label text="Replication Status" style="-fx-font-size: 16px; -fx-font-family: 'Segoe UI Semibold'; -fx-text-fill: #43b581;"/>
+    <TableView fx:id="replicationStatusTable" prefHeight="250" style="-fx-background-color: #23272f;">
+        <columns>
+            <TableColumn text="File" />
+            <TableColumn text="Status" />
+            <TableColumn text="Device" />
+        </columns>
+    </TableView>
+</VBox>
