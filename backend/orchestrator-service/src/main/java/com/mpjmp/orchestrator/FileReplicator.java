@@ -49,26 +49,21 @@ public class FileReplicator {
         try {
             String fileKey = filePath.toAbsolutePath().toString();
             if (replicatedFiles.contains(fileKey)) return;
-            byte[] content = Files.readAllBytes(filePath);
             String fileName = filePath.getFileName().toString();
             String deviceId = filePath.getParent().getFileName().toString();
-            String originalFileName = fileName;
-            String contentType = Files.probeContentType(filePath);
-            String base64Content = Base64.getEncoder().encodeToString(content);
 
+            // Set up ReplicationRequest payload
             Map<String, Object> payload = new HashMap<>();
+            payload.put("fileId", fileName); // Assuming fileName is used as fileId, adjust if needed
             payload.put("fileName", fileName);
-            payload.put("deviceId", deviceId);
-            payload.put("originalFileName", originalFileName);
-            payload.put("contentType", contentType);
-            payload.put("content", base64Content);
+            payload.put("sourceDeviceUrl", "${SOURCE_DEVICE_URL}"); // TODO: Replace with actual device URL or config property
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> req = new HttpEntity<>(payload, headers);
 
             for (String peer : peerUrls.split(",")) {
-                String url = peer.trim() + "/api/files/sync";
+                String url = peer.trim() + "/replicate-file";
                 try {
                     ResponseEntity<String> resp = restTemplate.postForEntity(url, req, String.class);
                     log.info("Replicated file {} to {}: {}", fileName, url, resp.getStatusCode());
