@@ -5,7 +5,6 @@ com\mpjmp\gui\Main.class
 com\mpjmp\gui\api\ProgressTrackingService.class
 com\mpjmp\gui\FileUploadController.class
 com\mpjmp\gui\StatusBarController$1.class
-com\mpjmp\gui\WebSocketClient.class
 com\mpjmp\gui\FileStatusController.class
 com\mpjmp\gui\PendingFilesDashboardController$1.class
 com\mpjmp\gui\api\FileDownloadService.class
@@ -23,7 +22,6 @@ com\mpjmp\gui\BulkOperationsController.class
 com\mpjmp\gui\ReplicationStatusDashboardController.class
 com\mpjmp\gui\FileStatusController$1.class
 com\mpjmp\gui\utils\ErrorDialog.class
-com\mpjmp\gui\WebSocketClient$1.class
 com\mpjmp\gui\FileProgress.class
 com\mpjmp\gui\StatusBarController.class
 com\mpjmp\gui\api\AtlasUploadService.class

@@ -13,7 +13,7 @@ public class Main extends Application {
     public void start(Stage primaryStage) throws Exception {
         // Get the WebSocket client instance but don't connect yet
         // This allows the application to start even if the notification service is down
-        WebSocketClient.getInstance();
+        // WebSocketClient.getInstance();
         
         // Load the main FXML view
         Parent root = FXMLLoader.load(getClass().getResource("/views/main.fxml"));

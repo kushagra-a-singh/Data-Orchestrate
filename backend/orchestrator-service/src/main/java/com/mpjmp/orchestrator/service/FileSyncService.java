@@ -129,7 +129,7 @@ public class FileSyncService {
         try {
             Path filePath = Paths.get(syncDir, fileName);
             byte[] fileContent = Files.readAllBytes(filePath);
-            String uploadUrl = String.format("http://%s:8081/api/files/replicate", device.getIp());
+            String uploadUrl = String.format("http://%s:8081/api/files/replicate", device.getDeviceName());
             Map<String, Object> request = new HashMap<>();
             request.put("fileId", fileId);
             request.put("fileName", fileName);
@@ -157,8 +157,14 @@ public class FileSyncService {
         } else if (sourceVersion < localVersion) {
             // Local version is newer, send it to the source device
             try {
-                uploadFile(fileId, fileName, sourceDeviceId);
-                log.info("Resolved conflict for file {}: sent local version to device {}", fileName, sourceDeviceId);
+                // There is no uploadFile method; replicate using uploadFileToDevice
+                Optional<DeviceInfo> deviceOpt = deviceInfoRepository.findById(sourceDeviceId);
+                if (deviceOpt.isPresent()) {
+                    uploadFileToDevice(fileId, fileName, deviceOpt.get());
+                    log.info("Resolved conflict for file {}: sent local version to device {}", fileName, sourceDeviceId);
+                } else {
+                    log.error("Device not found for conflict upload: {}", sourceDeviceId);
+                }
             } catch (Exception e) {
                 log.error("Error sending local version to resolve conflict", e);
             }

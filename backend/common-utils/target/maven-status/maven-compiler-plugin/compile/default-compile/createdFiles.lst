@@ -1,7 +1,6 @@
 HealthController.class
 MetricsCollector.class
 com\dataorchestrate\common\DeviceIdentifier.class
-com\mpjmp\common\config\KafkaConfig.class
 com\mpjmp\common\health\HealthStatus.class
 com\mpjmp\common\sync\ConflictResolver.class
 AtlasHealthIndicator.class

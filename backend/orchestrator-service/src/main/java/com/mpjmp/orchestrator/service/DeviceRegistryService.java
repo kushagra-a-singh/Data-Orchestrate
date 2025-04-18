@@ -29,7 +29,7 @@ public class DeviceRegistryService {
             .filter(device -> {
                 try {
                     OffsetDateTime lastSeen = OffsetDateTime.parse(device.getLastSeen());
-                    return Duration.between(lastSeen, now).compareTo(ONLINE_THRESHOLD) > 0 || device.getIp() == null;
+                    return Duration.between(lastSeen, now).compareTo(ONLINE_THRESHOLD) > 0;
                 } catch (DateTimeParseException | NullPointerException e) {
                     return true; // Consider devices with invalid/empty lastSeen as offline
                 }
@@ -52,7 +52,7 @@ public class DeviceRegistryService {
             .peek(device -> {
                 try {
                     Instant lastSeen = Instant.parse(device.getLastSeen());
-                    if (Duration.between(lastSeen, now).toMillis() > HEARTBEAT_INTERVAL_MS * 2 || device.getIp() == null) {
+                    if (Duration.between(lastSeen, now).toMillis() > HEARTBEAT_INTERVAL_MS * 2) {
                         device.setStatus("OFFLINE");
                     } else {
                         device.setStatus("ONLINE");

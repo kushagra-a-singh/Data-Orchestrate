@@ -30,9 +30,11 @@ public class FileStatusController {
     
     public void trackReplication(String fileId, String deviceId) {
         progressTimer = new Timer();
+        final String fileIdFinal = fileId;
+        final String deviceIdFinal = deviceId;
         progressTimer.scheduleAtFixedRate(new TimerTask() {
             public void run() {
-                updateProgress(fileId, deviceId);
+                updateProgress(fileIdFinal, deviceIdFinal);
             }
         }, 0, 1000); // Update every second
     }
@@ -40,6 +42,7 @@ public class FileStatusController {
     // All replication progress/status logic should use HTTP endpoints.
     // WebSocket or Kafka logic is deprecated.
     private void updateProgress(String fileId, String deviceId) {
+        final String fileIdFinal = fileId;
         try {
             // Use backend endpoint for replication status
             URL url = new URL("http://localhost:8085/api/replication-status/device/" + deviceId);
@@ -55,17 +58,19 @@ public class FileStatusController {
             boolean replicated = false;
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
-                if (fileId.equals(obj.optString("fileId"))) {
+                if (fileIdFinal.equals(obj.optString("fileId"))) {
                     replicated = true;
                     break;
                 }
             }
+            final boolean replicatedFinal = replicated;
             Platform.runLater(() -> {
-                syncProgress.setProgress(replicated ? 1.0 : 0.0);
-                statusLabel.setText(replicated ? "Replication complete" : "Syncing...");
+                syncProgress.setProgress(replicatedFinal ? 1.0 : 0.0);
+                statusLabel.setText(replicatedFinal ? "Replication complete" : "Syncing...");
             });
         } catch (Exception e) {
-            Platform.runLater(() -> statusLabel.setText("Progress update failed: " + e.getMessage()));
+            final String errorMsg = e.getMessage();
+            Platform.runLater(() -> statusLabel.setText("Progress update failed: " + errorMsg));
         }
     }
     
@@ -79,9 +84,9 @@ public class FileStatusController {
                 new FileInputStream(file),
                 options
             );
-            
+            final String fileIdStr = fileId.toString();
             Platform.runLater(() -> 
-                statusLabel.setText("Uploaded: " + fileId)
+                statusLabel.setText("Uploaded: " + fileIdStr)
             );
         } catch (Exception e) {
             Platform.runLater(() -> 

@@ -1,3 +1,5 @@
+// Deleted: This service was only used for Kafka event consumption and is obsolete after HTTP migration.
+
 package com.mpjmp.orchestrator.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
