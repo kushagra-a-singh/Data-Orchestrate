@@ -4,8 +4,11 @@ import com.dataorchestrate.processing.model.ProcessingJob;
 import com.dataorchestrate.processing.repository.ProcessingJobRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -15,12 +18,15 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.bson.Document;
 
 @Service
 @Slf4j
@@ -29,6 +35,7 @@ public class FileProcessingService {
     private final ProcessingJobRepository processingJobRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final MongoTemplate mongoTemplate;
 
     @Value("${app.upload.dir}")
     private String uploadDir;
@@ -49,10 +56,11 @@ public class FileProcessingService {
     private long retryDelay;
 
     @Autowired
-    public FileProcessingService(ProcessingJobRepository processingJobRepository, KafkaTemplate<String, String> kafkaTemplate, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+    public FileProcessingService(ProcessingJobRepository processingJobRepository, KafkaTemplate<String, String> kafkaTemplate, com.fasterxml.jackson.databind.ObjectMapper objectMapper, MongoTemplate mongoTemplate) {
         this.processingJobRepository = processingJobRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
+        this.mongoTemplate = mongoTemplate;
     }
 
     public void processFile(String message) {
@@ -251,6 +259,32 @@ public class FileProcessingService {
         } catch (Exception e) {
             log.error("Error parsing event", e);
             throw new RuntimeException(e);
+        }
+    }
+
+    // Add a PDF text extraction utility method
+    private String extractText(File file) throws Exception {
+        try (PDDocument document = PDDocument.load(file)) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            return stripper.getText(document);
+        }
+    }
+
+    public void processPDF(File file) throws ProcessingException {
+        try {
+            String extractedText = extractText(file);
+            
+            Document metadata = new Document()
+                .append("originalFile", file.getName())
+                .append("extractedText", extractedText)
+                .append("processingTime", Instant.now())
+                .append("fileSize", file.length());
+                
+            mongoTemplate.insert(metadata, "extracted_texts");
+            log.info("Stored extracted text for: {}", file.getName());
+        } catch (Exception e) {
+            log.error("PDF processing failed for: {}", file.getName(), e);
+            throw new ProcessingException("PDF text extraction failed", e);
         }
     }
 }

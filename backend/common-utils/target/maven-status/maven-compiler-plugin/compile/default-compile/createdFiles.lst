@@ -1,4 +1,10 @@
+HealthController.class
+MetricsCollector.class
 com\dataorchestrate\common\DeviceIdentifier.class
-com\mpjmp\common\model\ProcessingStatus.class
 com\mpjmp\common\config\KafkaConfig.class
+com\mpjmp\common\health\HealthStatus.class
+com\mpjmp\common\sync\ConflictResolver.class
+AtlasHealthIndicator.class
+com\mpjmp\common\model\ProcessingStatus.class
 com\mpjmp\common\model\FileMetadata.class
+com\mpjmp\common\sync\ConflictResolver$Strategy.class

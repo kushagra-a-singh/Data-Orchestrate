@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+    <TableView fx:id="historyTable">
+        <columns>
+            <TableColumn text="Timestamp" property="timestamp"/>
+            <TableColumn text="File" property="filename"/>
+            <TableColumn text="Device" property="deviceId"/>
+            <TableColumn text="Status" property="status"/>
+        </columns>
+    </TableView>
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button text="Refresh" onAction="#loadHistory"/>
+    </HBox>
+</VBox>

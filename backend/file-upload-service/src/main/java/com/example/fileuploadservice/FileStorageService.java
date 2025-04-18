@@ -1,31 +1,59 @@
 package com.mpjmp.fileupload.service;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBObject;
+import com.mongodb.client.gridfs.GridFSBucket;
+import com.mongodb.client.gridfs.GridFSDownloadStream;
+import com.mongodb.client.gridfs.model.GridFSFile;
+import com.mongodb.client.gridfs.model.GridFSUploadOptions;
+import org.bson.Document;
+import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.UUID;
+import java.io.InputStream;
 
 @Service
 public class FileStorageService {
 
-    @Value("${file.upload-dir}")
-    private String UPLOAD_DIR;
+    private final GridFSBucket gridFsBucket;
 
-    public String storeFile(MultipartFile file) {
-        String fileId = UUID.randomUUID().toString();
-        String basePath = Paths.get("").toAbsolutePath().toString();
-        String filePath = Paths.get(basePath, UPLOAD_DIR, fileId + "-" + file.getOriginalFilename()).toString();
+    @Autowired
+    public FileStorageService(GridFSBucket gridFsBucket) {
+        this.gridFsBucket = gridFsBucket;
+    }
 
-        try {
-            Files.createDirectories(Paths.get(basePath, UPLOAD_DIR));
-            file.transferTo(new File(filePath));
-            return fileId;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store file", e);
-        }
+    // --- METADATA VALIDATION ---
+    private void validateMetadata(MultipartFile file, String uploadedBy, String targetDirectory) {
+        if (uploadedBy == null || uploadedBy.isBlank()) throw new IllegalArgumentException("Uploader must be specified");
+        if (file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()) throw new IllegalArgumentException("Filename required");
+        if (file.getContentType() == null || file.getContentType().isBlank()) throw new IllegalArgumentException("File type required");
+        if (targetDirectory == null) throw new IllegalArgumentException("Target directory required");
+    }
+
+    // --- ENSURE FULL METADATA ON UPLOAD ---
+    public String storeFile(MultipartFile file, String uploadedBy, String targetDirectory) throws IOException {
+        validateMetadata(file, uploadedBy, targetDirectory);
+        Document metadata = new Document()
+            .append("uploadedBy", uploadedBy)
+            .append("originalFilename", file.getOriginalFilename())
+            .append("contentType", file.getContentType())
+            .append("targetDirectory", targetDirectory)
+            .append("timestamp", System.currentTimeMillis());
+        ObjectId fileId = gridFsBucket.uploadFromStream(
+            file.getOriginalFilename(), 
+            file.getInputStream(),
+            new GridFSUploadOptions().metadata(metadata)
+        );
+        return fileId.toString();
+    }
+    
+    public byte[] getFile(String fileId) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        gridFsBucket.downloadToStream(new ObjectId(fileId), outputStream);
+        return outputStream.toByteArray();
     }
 }

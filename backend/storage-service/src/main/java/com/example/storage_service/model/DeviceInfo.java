@@ -16,4 +16,17 @@ public class DeviceInfo {
     private String status;
     private String lastSeen;
     private String storagePath;
+
+    public String getSyncUrl() {
+        // Placeholder: Replace with actual logic to construct the sync URL
+        return "http://" + deviceName + "/sync";
+    }
+
+    public boolean isOffline() {
+        return "OFFLINE".equalsIgnoreCase(status);
+    }
+
+    public String getId() {
+        return deviceId;
+    }
 } 

@@ -8,74 +8,29 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.net.ConnectException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
+import org.json.JSONObject;
+import java.util.Base64;
 
 public class FileUploadService {
     private static final String UPLOAD_URL = "http://localhost:8081/api/files/upload";
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public static String uploadFile(File file) {
         try {
-            // Create multipart form data
-            byte[] fileBytes = Files.readAllBytes(file.toPath());
-            String fileName = file.getName();
+            JSONObject payload = new JSONObject();
+            payload.put("fileName", file.getName());
+            payload.put("fileData", Base64.getEncoder().encodeToString(Files.readAllBytes(file.toPath())));
             
-            // Build multipart form data
-            String boundary = "----" + System.currentTimeMillis();
-            StringBuilder formData = new StringBuilder();
-            formData.append("--").append(boundary).append("\r\n");
-            formData.append("Content-Disposition: form-data; name=\"file\"; filename=\"").append(fileName).append("\"\r\n");
-            formData.append("Content-Type: application/octet-stream\r\n\r\n");
+            HttpResponse<String> response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder()
+                    .uri(URI.create(UPLOAD_URL))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
+                    .build(),
+                HttpResponse.BodyHandlers.ofString()
+            );
             
-            // Add additional form fields
-            formData.append("\r\n--").append(boundary).append("\r\n");
-            formData.append("Content-Disposition: form-data; name=\"uploadedBy\"\r\n\r\n");
-            formData.append(System.getProperty("user.name")).append("\r\n");
-            
-            formData.append("--").append(boundary).append("\r\n");
-            formData.append("Content-Disposition: form-data; name=\"deviceName\"\r\n\r\n");
-            formData.append(System.getenv("COMPUTERNAME")).append("\r\n");
-            
-            formData.append("--").append(boundary).append("\r\n");
-            formData.append("Content-Disposition: form-data; name=\"deviceIp\"\r\n\r\n");
-            formData.append(System.getenv("COMPUTERNAME")).append("\r\n");
-            
-            // Combine form data with file content
-            byte[] formDataBytes = formData.toString().getBytes();
-            byte[] boundaryBytes = ("\r\n--" + boundary + "--\r\n").getBytes();
-            
-            byte[] requestBody = new byte[formDataBytes.length + fileBytes.length + boundaryBytes.length];
-            System.arraycopy(formDataBytes, 0, requestBody, 0, formDataBytes.length);
-            System.arraycopy(fileBytes, 0, requestBody, formDataBytes.length, fileBytes.length);
-            System.arraycopy(boundaryBytes, 0, requestBody, formDataBytes.length + fileBytes.length, boundaryBytes.length);
-
-            // Create HTTP request
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(UPLOAD_URL))
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody))
-                .build();
-
-            // Send request
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200) {
-                // Parse the JSON response
-                try {
-                    JsonNode jsonNode = objectMapper.readTree(response.body());
-                    String fileId = jsonNode.get("id").asText();
-                    return "Upload successful! File ID: " + fileId;
-                } catch (Exception e) {
-                    return "Upload successful! Response: " + response.body();
-                }
-            } else {
-                return "Upload failed! Response Code: " + response.statusCode() + ", Body: " + response.body();
-            }
-        } catch (ConnectException e) {
-            return "Error: File upload service is not running. Please start the file-upload service first.";
-        } catch (IOException | InterruptedException e) {
+            return response.body();
+        } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
     }

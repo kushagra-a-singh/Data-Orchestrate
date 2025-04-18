@@ -2,6 +2,7 @@ package com.mpjmp.gui;
 
 import com.mpjmp.gui.api.FileUploadService;
 import com.mpjmp.gui.api.ProgressTrackingService;
+import com.mpjmp.gui.api.AtlasUploadService;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -16,8 +17,11 @@ import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.StackPane;
-
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 
 public class FileUploadController {
     @FXML private ProgressBar progressBar;
@@ -29,6 +33,14 @@ public class FileUploadController {
     private File selectedFile;
 
     private boolean darkMode = true;
+
+    // --- SUPPORTED FILE TYPES ---
+    private static final List<String> SUPPORTED_EXTENSIONS = Arrays.asList("PDF", "DOCX", "XLSX", "JPG", "JPEG", "PNG", "ZIP", "TXT", "CSV", "MP4", "MP3");
+
+    private boolean isSupportedFileType(File file) {
+        String ext = getFileExtension(file);
+        return SUPPORTED_EXTENSIONS.contains(ext);
+    }
 
     @FXML
     public void initialize() {
@@ -53,10 +65,18 @@ public class FileUploadController {
                 boolean success = false;
                 if (db.hasFiles()) {
                     File file = db.getFiles().get(0);
-                    selectedFile = file;
-                    updateStatus("Selected: " + file.getName() + " (" + getFileExtension(file) + ")", Color.DODGERBLUE);
-                    uploadButton.setDisable(false);
-                    success = true;
+                    if (!isSupportedFileType(file)) {
+                        showErrorDialog("Unsupported File Type", "Supported types: " + String.join(", ", SUPPORTED_EXTENSIONS));
+                        selectedFile = null;
+                        updateStatus("No file selected", Color.GRAY);
+                        uploadButton.setDisable(true);
+                        success = false;
+                    } else {
+                        selectedFile = file;
+                        updateStatus("Selected: " + file.getName() + " (" + getFileExtension(file) + ")", Color.DODGERBLUE);
+                        uploadButton.setDisable(false);
+                        success = true;
+                    }
                 }
                 event.setDropCompleted(success);
                 event.consume();
@@ -85,8 +105,14 @@ public class FileUploadController {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Select File to Upload");
         selectedFile = fileChooser.showOpenDialog(null);
-        
         if (selectedFile != null) {
+            if (!isSupportedFileType(selectedFile)) {
+                showErrorDialog("Unsupported File Type", "Supported types: " + String.join(", ", SUPPORTED_EXTENSIONS));
+                selectedFile = null;
+                updateStatus("No file selected", Color.GRAY);
+                uploadButton.setDisable(true);
+                return;
+            }
             updateStatus("Selected: " + selectedFile.getName(), Color.GREEN);
             uploadButton.setDisable(false);
         } else {
@@ -97,85 +123,36 @@ public class FileUploadController {
 
     @FXML
     public void uploadFile() {
-        if (selectedFile == null) {
-            updateStatus("No file selected!", Color.RED);
-            return;
-        }
-
+        if (selectedFile == null) return;
         uploadButton.setDisable(true);
-        updateStatus("Uploading...", Color.BLUE);
-        progressBar.setProgress(-1); // Indeterminate progress
-
+        progressBar.setProgress(-1);
         new Thread(() -> {
             try {
-                String response = FileUploadService.uploadFile(selectedFile);
+                // Try to get MongoDB URI from System properties first (set by Main.java)
+                String uri = System.getProperty("MONGODB_URI");
                 
-                if (response.contains("successful")) {
-                    Platform.runLater(() -> {
-                        updateStatus("Upload successful! Processing...", Color.GREEN);
-                        progressBar.setProgress(0);
-                    });
-
-                    // Start tracking progress
-                    int attempts = 0;
-                    int maxAttempts = 10; // Limit the number of attempts
-                    
-                    while (attempts < maxAttempts) {
-                        String progress = ProgressTrackingService.getProcessingProgress(selectedFile.getName());
-                        
-                        try {
-                            double progressValue = Double.parseDouble(progress);
-                            
-                            Platform.runLater(() -> {
-                                progressBar.setProgress(progressValue);
-                                if (progressValue < 1.0) {
-                                    updateStatus("Processing: " + (int)(progressValue * 100) + "%", Color.BLUE);
-                                } else {
-                                    updateStatus("Processing Complete!", Color.GREEN);
-                                    uploadButton.setDisable(false);
-                                }
-                            });
-
-                            if (progressValue >= 1.0) {
-                                break;
-                            }
-                        } catch (NumberFormatException e) {
-                            // If we can't parse the progress value, just continue
-                            System.err.println("Error parsing progress value: " + progress);
-                        }
-                        
-                        attempts++;
-                        try {
-                            Thread.sleep(1000);
-                        } catch (InterruptedException ignored) {}
-                    }
-                    
-                    // If we've reached the maximum number of attempts, just show completion
-                    if (attempts >= maxAttempts) {
-                        Platform.runLater(() -> {
-                            updateStatus("Processing Complete!", Color.GREEN);
-                            uploadButton.setDisable(false);
-                            progressBar.setProgress(1.0);
-                        });
-                    }
-                } else {
-                    Platform.runLater(() -> {
-                        updateStatus("Upload failed: " + response, Color.RED);
-                        uploadButton.setDisable(false);
-                        progressBar.setProgress(0);
-                        
-                        // Show error dialog for connection issues
-                        if (response.contains("File upload service is not running")) {
-                            showErrorDialog("Service Not Running", 
-                                "The file upload service is not running. Please start the service first.");
-                        }
-                    });
+                // Fallback to environment variable if not found in properties
+                if (uri == null || uri.isEmpty()) {
+                    uri = System.getenv("MONGODB_URI");
                 }
+                
+                // If still not found, throw an error
+                if (uri == null || uri.isEmpty()) {
+                    throw new RuntimeException("MONGODB_URI environment variable is not set.");
+                }
+                
+                MongoClient mongoClient = MongoClients.create(uri);
+                AtlasUploadService service = new AtlasUploadService(mongoClient);
+                String fileId = service.uploadDirectToAtlas(selectedFile);
+                Platform.runLater(() -> {
+                    updateStatus("Upload successful! ID: " + fileId, Color.GREEN);
+                    progressBar.setProgress(1);
+                });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    updateStatus("Error: " + e.getMessage(), Color.RED);
+                    showErrorDialog("Upload failed", e.getMessage());
+                    updateStatus("Upload failed: " + e.getMessage(), Color.RED);
                     uploadButton.setDisable(false);
-                    progressBar.setProgress(0);
                 });
             }
         }).start();
@@ -186,6 +163,12 @@ public class FileUploadController {
         selectedFile = null;
         updateStatus("No file selected", Color.GRAY);
         uploadButton.setDisable(true);
+    }
+
+    @FXML
+    public void showSyncRules() {
+        // TODO: Implement sync rules dialog or navigation
+        showErrorDialog("Not implemented", "Sync Rules dialog is not implemented yet.");
     }
 
     private void updateStatus(String message, Color color) {

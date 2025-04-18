@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+    <TableView fx:id="rulesTable">
+        <columns>
+            <TableColumn text="Path Pattern" property="pathPattern"/>
+            <TableColumn text="Direction" property="direction"/>
+            <TableColumn text="Conflict Resolution" property="resolution"/>
+            <TableColumn text="Enabled" property="enabled"/>
+        </columns>
+    </TableView>
+    <HBox spacing="10">
+        <TextField fx:id="pathPatternField" promptText="**/*.pdf"/>
+        <ComboBox fx:id="directionCombo" promptText="Direction"/>
+        <ComboBox fx:id="resolutionCombo" promptText="Conflict Rule"/>
+        <CheckBox fx:id="enabledCheck" text="Enabled"/>
+        <Button text="Add Rule" onAction="#saveRule"/>
+    </HBox>
+</VBox>

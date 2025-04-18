@@ -36,11 +36,17 @@ public class StorageService {
         Path deviceDir = Paths.get(storageDir, deviceId);
         Files.createDirectories(deviceDir);
         
-        // Save file
+        // Save file with proper naming
         Path filePath = deviceDir.resolve(fileId + "_" + fileName);
         Files.write(filePath, content);
         
-        logger.info("File {} stored successfully at {}", fileName, filePath);
+        // Also save a copy to the data directory for processing
+        Path dataDir = Paths.get("./data/storage");
+        Files.createDirectories(dataDir);
+        Path dataFilePath = dataDir.resolve(fileId + "_" + fileName);
+        Files.write(dataFilePath, content);
+        
+        logger.info("File {} stored successfully at {} and in data directory", fileName, filePath);
     }
     
     public byte[] retrieveFile(String fileId, String fileName) throws IOException {

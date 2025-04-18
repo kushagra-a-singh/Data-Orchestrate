@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.chart.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1">
+    <LineChart fx:id="throughputChart" title="Replication Throughput">
+        <xAxis><CategoryAxis label="Time"/></xAxis>
+        <yAxis><NumberAxis label="Files/sec"/></yAxis>
+    </LineChart>
+    <PieChart fx:id="storageChart" title="Storage Distribution"/>
+</VBox>

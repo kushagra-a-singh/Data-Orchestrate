@@ -39,6 +39,14 @@
             </VBox>
         </VBox>
     </center>
+    <!-- Menu Bar -->
+    <top>
+        <MenuBar>
+            <Menu text="File">
+                <MenuItem text="Sync Rules" onAction="#showSyncRules"/>
+            </Menu>
+        </MenuBar>
+    </top>
     <!-- Footer -->
     <bottom>
         <HBox alignment="CENTER" style="-fx-background-color: #23272f;">

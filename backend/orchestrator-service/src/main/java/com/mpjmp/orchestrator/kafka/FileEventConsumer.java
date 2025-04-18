@@ -1,8 +1,8 @@
 package com.mpjmp.orchestrator.kafka;
 
 import com.mpjmp.orchestrator.service.FileEventService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 

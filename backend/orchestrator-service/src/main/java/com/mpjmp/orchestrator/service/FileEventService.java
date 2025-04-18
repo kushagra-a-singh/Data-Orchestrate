@@ -4,9 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mpjmp.orchestrator.model.FileEvent;
+import com.mpjmp.orchestrator.model.FileEvent;
 import com.mpjmp.orchestrator.repository.FileEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.retry.annotation.Backoff;
@@ -18,10 +21,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileEventService {
+
+    private static final Logger log = LoggerFactory.getLogger(FileEventService.class);
 
     private final FileEventRepository fileEventRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;

@@ -14,22 +14,30 @@ public class FileDownloadService {
 
     public static String downloadFile(String fileId, String savePath) {
         try {
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(DOWNLOAD_URL + fileId))
-                .GET()
-                .build();
-
-            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<byte[]> response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder()
+                    .uri(URI.create(DOWNLOAD_URL + fileId))
+                    .GET()
+                    .build(),
+                HttpResponse.BodyHandlers.ofByteArray()
+            );
 
             if (response.statusCode() == 200) {
-                try (InputStream inputStream = response.body()) {
-                    Files.copy(inputStream, Paths.get(savePath));
-                }
-                return "Download successful: " + savePath;
-            } else {
-                return "Download failed! Response Code: " + response.statusCode();
+                Files.write(Paths.get(savePath), response.body());
+                
+                // Get metadata
+                HttpResponse<String> metaResponse = HttpClient.newHttpClient().send(
+                    HttpRequest.newBuilder()
+                        .uri(URI.create(DOWNLOAD_URL + fileId + "/metadata"))
+                        .GET()
+                        .build(),
+                    HttpResponse.BodyHandlers.ofString()
+                );
+                
+                return "Download successful. Metadata: " + metaResponse.body();
             }
-        } catch (IOException | InterruptedException e) {
+            return "Download failed! Response Code: " + response.statusCode();
+        } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
     }

@@ -11,3 +11,4 @@ class FileUploadServiceApplicationTests {
 	}
 
 }
+// Removed TestConfig import as the file is deleted and no longer needed
