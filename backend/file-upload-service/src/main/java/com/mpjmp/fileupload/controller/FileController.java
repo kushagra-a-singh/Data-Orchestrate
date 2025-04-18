@@ -79,6 +79,25 @@ public class FileController {
         return ResponseEntity.ok().build();
     }
 
+    // --- NEW ENDPOINT for SYNC ---
+    @PostMapping("/sync-device")
+    public ResponseEntity<Void> syncFileFromDevice(@RequestBody Map<String, Object> syncRequest) throws IOException {
+        String fileName = (String) syncRequest.get("fileName");
+        String deviceId = (String) syncRequest.get("deviceId");
+        String originalFileName = (String) syncRequest.get("originalFileName");
+        String contentType = (String) syncRequest.get("contentType");
+        byte[] content = java.util.Base64.getDecoder().decode((String) syncRequest.get("content"));
+        Path uploadPath = Paths.get(fileUploadService.getAbsoluteUploadDir(), deviceId);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+        Path filePath = uploadPath.resolve(fileName);
+        Files.write(filePath, content);
+        log.info("[SYNC] File received and saved at {}", filePath.toAbsolutePath());
+        // Optionally: Save metadata here if needed
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping("/list")
     public ResponseEntity<List<FileMetadata>> listFiles(
             @RequestParam(required = false) String status,

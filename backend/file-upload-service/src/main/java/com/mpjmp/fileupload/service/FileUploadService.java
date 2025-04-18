@@ -37,12 +37,27 @@ public class FileUploadService {
     @Value("${app.upload.dir}")
     private String uploadDir;
 
+    private String getAbsoluteUploadDir() {
+        // Always use an absolute path for uploads
+        Path absPath = Paths.get(uploadDir).toAbsolutePath();
+        if (!Files.exists(absPath)) {
+            try {
+                Files.createDirectories(absPath);
+                log.info("Created upload directory: {}", absPath);
+            } catch (IOException e) {
+                log.error("Failed to create upload directory: {}", absPath, e);
+            }
+        }
+        return absPath.toString();
+    }
+
     public FileMetadata uploadFile(MultipartFile file, String uploadedBy, String deviceName, String deviceIp) throws IOException {
         DeviceIdentifier deviceIdentifier = new DeviceIdentifier();
         String dynamicDeviceId = deviceIdentifier.getDeviceId();
         String dynamicDeviceName = deviceIdentifier.getDeviceId(); // Or getName() if available
         String dynamicDeviceIp = deviceIp != null ? deviceIp : InetAddress.getLocalHost().getHostAddress();
-        Path uploadPath = Paths.get(uploadDir, dynamicDeviceId);
+        String absUploadDir = getAbsoluteUploadDir();
+        Path uploadPath = Paths.get(absUploadDir, dynamicDeviceId);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
@@ -90,9 +105,9 @@ public class FileUploadService {
         try {
             Path filePath = uploadPath.resolve(fileName);
             Files.copy(file.getInputStream(), filePath);
-            log.info("File saved successfully: {}", fileName);
+            log.info("File saved successfully: {} at {}", fileName, filePath.toAbsolutePath());
         } catch (IOException e) {
-            log.error("Error saving file: {}", e.getMessage());
+            log.error("Error saving file: {} at {}", fileName, uploadPath.toAbsolutePath(), e);
             throw e;
         }
     }
