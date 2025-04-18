@@ -14,8 +14,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import javafx.application.Platform;
 import com.mpjmp.gui.utils.ErrorDialog;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URL;
+import java.net.HttpURLConnection;
+import java.util.Scanner;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class FileStatusController {
     @FXML private ProgressBar syncProgress;
@@ -34,21 +37,35 @@ public class FileStatusController {
         }, 0, 1000); // Update every second
     }
     
+    // All replication progress/status logic should use HTTP endpoints.
+    // WebSocket or Kafka logic is deprecated.
     private void updateProgress(String fileId, String deviceId) {
         try {
-            GridFSFile file = gridFsBucket.find(new Document("_id", fileId)).first();
-            if (file != null) {
-                JsonNode progress = new ObjectMapper().readTree(file.getMetadata().toJson());
-                Platform.runLater(() -> {
-                    syncProgress.setProgress(progress.get("progress").asDouble());
-                    statusLabel.setText(String.format("Syncing: %.0f%%", 
-                        progress.get("progress").asDouble() * 100));
-                });
+            // Use backend endpoint for replication status
+            URL url = new URL("http://localhost:8085/api/replication-status/device/" + deviceId);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.connect();
+            Scanner sc = new Scanner(conn.getInputStream());
+            StringBuilder sb = new StringBuilder();
+            while (sc.hasNext()) sb.append(sc.nextLine());
+            sc.close();
+            JSONArray arr = new JSONArray(sb.toString());
+            // Find this fileId
+            boolean replicated = false;
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                if (fileId.equals(obj.optString("fileId"))) {
+                    replicated = true;
+                    break;
+                }
             }
+            Platform.runLater(() -> {
+                syncProgress.setProgress(replicated ? 1.0 : 0.0);
+                statusLabel.setText(replicated ? "Replication complete" : "Syncing...");
+            });
         } catch (Exception e) {
-            Platform.runLater(() -> 
-                statusLabel.setText("Progress update failed")
-            );
+            Platform.runLater(() -> statusLabel.setText("Progress update failed: " + e.getMessage()));
         }
     }
     

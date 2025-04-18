@@ -46,6 +46,8 @@ public class ReplicationStatusDashboardController {
         }, AUTO_REFRESH_INTERVAL_MS, AUTO_REFRESH_INTERVAL_MS);
     }
 
+    // All status and progress should be fetched via HTTP endpoints.
+    // WebSocket-based logic is deprecated.
     public void refreshReplicationStatus() {
         new Thread(() -> {
             try {
@@ -82,8 +84,20 @@ public class ReplicationStatusDashboardController {
     }
 
     private int getPendingCount() {
-        // TODO: Optionally fetch pending count from backend for accurate progress
-        return 0;
+        try {
+            URL url = new URL("http://localhost:8085/api/replication-status/device/" + deviceId + "/pending");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.connect();
+            Scanner sc = new Scanner(conn.getInputStream());
+            StringBuilder sb = new StringBuilder();
+            while (sc.hasNext()) sb.append(sc.nextLine());
+            sc.close();
+            JSONArray arr = new JSONArray(sb.toString());
+            return arr.length();
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     /**

@@ -9,7 +9,6 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,6 @@ import org.bson.Document;
 public class FileProcessingService {
 
     private final ProcessingJobRepository processingJobRepository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final MongoTemplate mongoTemplate;
 
@@ -43,22 +41,9 @@ public class FileProcessingService {
     @Value("${app.processed.dir}")
     private String processedDir;
 
-    @Value("${kafka.topic.file-status}")
-    private String fileStatusTopic;
-
-    @Value("${kafka.topic.notifications}")
-    private String notificationsTopic;
-
-    @Value("${app.retry.max-attempts:3}")
-    private int maxRetryAttempts;
-
-    @Value("${app.retry.delay:5000}")
-    private long retryDelay;
-
     @Autowired
-    public FileProcessingService(ProcessingJobRepository processingJobRepository, KafkaTemplate<String, String> kafkaTemplate, com.fasterxml.jackson.databind.ObjectMapper objectMapper, MongoTemplate mongoTemplate) {
+    public FileProcessingService(ProcessingJobRepository processingJobRepository, com.fasterxml.jackson.databind.ObjectMapper objectMapper, MongoTemplate mongoTemplate) {
         this.processingJobRepository = processingJobRepository;
-        this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
         this.mongoTemplate = mongoTemplate;
     }
@@ -147,11 +132,9 @@ public class FileProcessingService {
             // Update job with success
             updateJobSuccess(fileId, createProcessingResult(sourcePath, targetPath));
 
-            // Update file status
-            updateFileStatus(fileId, "COMPLETED", null);
-
+            // TODO: Implement HTTP-based event notifications or calls
             // Send success notification
-            sendNotification("SUCCESS", "File processed successfully: " + originalFileName);
+            // sendNotification("SUCCESS", "File processed successfully: " + originalFileName);
 
         } catch (Exception e) {
             log.error("Error in processing attempt", e);
@@ -168,11 +151,9 @@ public class FileProcessingService {
 
             updateJobError(fileId, errorMessage);
 
-            // Update file status
-            updateFileStatus(fileId, "FAILED", errorMessage);
-
+            // TODO: Implement HTTP-based event notifications or calls
             // Send error notification
-            sendNotification("ERROR", "Failed to process file: " + originalFileName + " - " + errorMessage);
+            // sendNotification("ERROR", "Failed to process file: " + originalFileName + " - " + errorMessage);
 
         } catch (Exception e) {
             log.error("Error handling processing error", e);
@@ -190,31 +171,6 @@ public class FileProcessingService {
             log.error("Error creating processing result", e);
         }
         return result;
-    }
-
-    private void updateFileStatus(String fileId, String status, String errorMessage) {
-        try {
-            Map<String, Object> statusEvent = new HashMap<>();
-            statusEvent.put("fileId", fileId);
-            statusEvent.put("newStatus", status);
-            statusEvent.put("errorMessage", errorMessage);
-            statusEvent.put("updatedAt", LocalDateTime.now().toString());
-
-            kafkaTemplate.send(fileStatusTopic, objectMapper.writeValueAsString(statusEvent));
-        } catch (Exception e) {
-            log.error("Error updating file status", e);
-        }
-    }
-
-    private void sendNotification(String type, String message) {
-        try {
-            Map<String, String> notification = new HashMap<>();
-            notification.put("type", type);
-            notification.put("message", message);
-            kafkaTemplate.send(notificationsTopic, objectMapper.writeValueAsString(notification));
-        } catch (Exception e) {
-            log.error("Failed to send notification", e);
-        }
     }
 
     private void processFileContent(Path sourcePath, Path targetPath) throws Exception {

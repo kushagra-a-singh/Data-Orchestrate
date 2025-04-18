@@ -8,6 +8,7 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.Alert;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -42,6 +43,8 @@ public class PendingFilesDashboardController {
         }, AUTO_REFRESH_INTERVAL_MS, AUTO_REFRESH_INTERVAL_MS);
     }
 
+    // All pending file refresh logic should use HTTP endpoints.
+    // WebSocket or Kafka logic is deprecated.
     public void refreshPendingFiles() {
         new Thread(() -> {
             try {
@@ -66,7 +69,15 @@ public class PendingFilesDashboardController {
                     }
                 });
             } catch (Exception e) {
-                Platform.runLater(() -> pendingRows.clear());
+                Platform.runLater(() -> {
+                    pendingRows.clear();
+                    // Enhanced error feedback
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.setTitle("Pending Files Error");
+                    alert.setHeaderText("Could not fetch pending files");
+                    alert.setContentText(e.getMessage());
+                    alert.showAndWait();
+                });
             }
         }).start();
     }

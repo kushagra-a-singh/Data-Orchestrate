@@ -1,7 +1,9 @@
 package com.mpjmp.storage.service;
 
-import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.client.RestTemplate;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -13,12 +15,11 @@ public class ReplicationListenerService {
     
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @KafkaListener(topics = "file-replication-topic", groupId = "storage-group")
-    public void receiveFileReplicationRequest(String message) {
+    @PostMapping("/replicate-file")
+    public ResponseEntity<String> receiveFileReplicationRequest(@RequestBody ReplicationRequest request) {
         try {
-            String[] parts = message.split(",");
-            String fileName = parts[0];
-            String uploaderIp = parts[1];
+            String fileName = request.getFileName();
+            String uploaderIp = request.getUploaderIp();
 
             System.out.println("Received replication request for " + fileName + " from " + uploaderIp);
 
@@ -28,8 +29,31 @@ public class ReplicationListenerService {
             inputStream.transferTo(outputStream);
 
             System.out.println("File replicated successfully: " + fileName);
+            return ResponseEntity.ok("File replicated successfully");
         } catch (Exception e) {
             System.err.println("Error replicating file: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error replicating file: " + e.getMessage());
         }
+    }
+}
+
+class ReplicationRequest {
+    private String fileName;
+    private String uploaderIp;
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String getUploaderIp() {
+        return uploaderIp;
+    }
+
+    public void setUploaderIp(String uploaderIp) {
+        this.uploaderIp = uploaderIp;
     }
 }

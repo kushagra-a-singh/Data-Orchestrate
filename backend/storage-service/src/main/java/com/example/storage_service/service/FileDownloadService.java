@@ -2,8 +2,10 @@ package com.example.storage_service.service;
 
 import com.mongodb.client.gridfs.GridFSBucket;
 import org.bson.types.ObjectId;
-import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.example.storage_service.events.FileChangeEvent;
@@ -25,8 +27,8 @@ public class FileDownloadService {
         return baseDirectory.resolve(deviceId);
     }
     
-    @KafkaListener(topics = "file-changes")
-    public void handleFileChange(FileChangeEvent event) {
+    @PostMapping("/file-changes")
+    public ResponseEntity<String> handleFileChange(@RequestBody FileChangeEvent event) {
         event.deviceIds().forEach(deviceId -> {
             try {
                 Path deviceDir = getDeviceDirectory(deviceId);
@@ -40,6 +42,7 @@ public class FileDownloadService {
                 log.error("Failed to sync to device {}: {}", deviceId, e.getMessage());
             }
         });
+        return ResponseEntity.ok("File change handled successfully");
     }
     
     private byte[] downloadFile(String fileId) throws IOException {

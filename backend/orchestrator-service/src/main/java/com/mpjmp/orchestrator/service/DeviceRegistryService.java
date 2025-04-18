@@ -20,13 +20,16 @@ public class DeviceRegistryService {
     @Autowired
     private DeviceInfoRepository deviceInfoRepository;
 
+    // --- ENSURE DEVICE DISCOVERY FOR HTTP ORCHESTRATION ---
+    // No Kafka logic to remove here, but ensure getOnlineDevices() and getOfflineDevices() are correct
+    // Devices should have IPs set for HTTP communication
     public List<DeviceInfo> getOfflineDevices() {
         OffsetDateTime now = OffsetDateTime.now();
         return deviceInfoRepository.findAll().stream()
             .filter(device -> {
                 try {
                     OffsetDateTime lastSeen = OffsetDateTime.parse(device.getLastSeen());
-                    return Duration.between(lastSeen, now).compareTo(ONLINE_THRESHOLD) > 0;
+                    return Duration.between(lastSeen, now).compareTo(ONLINE_THRESHOLD) > 0 || device.getIp() == null;
                 } catch (DateTimeParseException | NullPointerException e) {
                     return true; // Consider devices with invalid/empty lastSeen as offline
                 }
@@ -49,7 +52,7 @@ public class DeviceRegistryService {
             .peek(device -> {
                 try {
                     Instant lastSeen = Instant.parse(device.getLastSeen());
-                    if (Duration.between(lastSeen, now).toMillis() > HEARTBEAT_INTERVAL_MS * 2) {
+                    if (Duration.between(lastSeen, now).toMillis() > HEARTBEAT_INTERVAL_MS * 2 || device.getIp() == null) {
                         device.setStatus("OFFLINE");
                     } else {
                         device.setStatus("ONLINE");

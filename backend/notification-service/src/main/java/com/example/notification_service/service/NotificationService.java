@@ -5,33 +5,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
 @Service
+@RestController
 public class NotificationService {
     private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
-
-    @Autowired
     private SimpMessagingTemplate messagingTemplate;
-
-    @Value("${kafka.topic.file-processed}")
-    private String fileProcessedTopic;
-
-    @Value("${kafka.topic.file-error}")
-    private String fileErrorTopic;
 
     @Value("${app.retry.max-attempts:3}")
     private int maxRetryAttempts;
@@ -39,10 +31,10 @@ public class NotificationService {
     @Value("${app.retry.delay:5000}")
     private long retryDelay;
 
-    @KafkaListener(topics = "${kafka.topic.file-processed}", groupId = "${spring.kafka.consumer.group-id}")
-    public void handleFileProcessed(String message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+    @PostMapping("/notifications/processed")
+    public ResponseEntity<String> handleFileProcessed(@RequestBody String message) {
         try {
-            logger.info("Received file processed notification from topic {}: {}", topic, message);
+            logger.info("Received file processed notification: {}", message);
             
             // Parse the message
             Map<String, String> processedDetails = objectMapper.readValue(message, new com.fasterxml.jackson.core.type.TypeReference<HashMap<String, String>>() {});
@@ -58,19 +50,22 @@ public class NotificationService {
             notification.put("message", "File processing completed successfully!");
             notification.put("details", processedDetails);
             
-            // Send WebSocket notification to all connected clients with retry
-            sendWebSocketNotificationWithRetry("/topic/notifications", notification);
-            logger.info("Sent success notification via WebSocket");
+            // Deprecated: WebSocket notification logic. Use HTTP-based notification if required.
+            // sendWebSocketNotificationWithRetry and related logic can be removed if not needed.
+            // sendWebSocketNotificationWithRetry("/topic/notifications", notification);
+            logger.info("Sent success notification via HTTP");
             
+            return ResponseEntity.ok("Notification processed");
         } catch (Exception e) {
             logger.error("Error handling file processed notification: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error processing notification");
         }
     }
 
-    @KafkaListener(topics = "${kafka.topic.file-error}", groupId = "${spring.kafka.consumer.group-id}")
-    public void handleFileError(String message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+    @PostMapping("/notifications/error")
+    public ResponseEntity<String> handleFileError(@RequestBody String message) {
         try {
-            logger.info("Received file error notification from topic {}: {}", topic, message);
+            logger.info("Received file error notification: {}", message);
             
             // Parse the message
             Map<String, String> errorDetails = objectMapper.readValue(message, new com.fasterxml.jackson.core.type.TypeReference<HashMap<String, String>>() {});
@@ -85,15 +80,20 @@ public class NotificationService {
             notification.put("message", "File processing failed!");
             notification.put("details", errorDetails);
             
-            // Send WebSocket notification to all connected clients with retry
-            sendWebSocketNotificationWithRetry("/topic/notifications", notification);
-            logger.info("Sent error notification via WebSocket");
+            // Deprecated: WebSocket notification logic. Use HTTP-based notification if required.
+            // sendWebSocketNotificationWithRetry and related logic can be removed if not needed.
+            // sendWebSocketNotificationWithRetry("/topic/notifications", notification);
+            logger.info("Sent error notification via HTTP");
             
+            return ResponseEntity.ok("Notification processed");
         } catch (Exception e) {
             logger.error("Error handling file error notification: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error processing notification");
         }
     }
 
+    // Deprecated: WebSocket notification logic. Use HTTP-based notification if required.
+    // sendWebSocketNotificationWithRetry and related logic can be removed if not needed.
     @Retryable(
         value = {Exception.class},
         maxAttempts = 3,

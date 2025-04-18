@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.kafka.annotation.EnableKafka;
 
 @SpringBootApplication
-@EnableKafka
+// @EnableKafka removed for HTTP-based orchestration
 public class OrchestratorServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(OrchestratorServiceApplication.class, args);

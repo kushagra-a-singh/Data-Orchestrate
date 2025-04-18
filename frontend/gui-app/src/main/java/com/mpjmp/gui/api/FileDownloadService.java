@@ -9,7 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 public class FileDownloadService {
-    private static final String DOWNLOAD_URL = "http://localhost:8085/download/";
+    private static final String DOWNLOAD_URL = "http://localhost:8085/api/files/download/";
     private static final HttpClient httpClient = HttpClient.newHttpClient();
 
     public static String downloadFile(String fileId, String savePath) {
@@ -25,16 +25,8 @@ public class FileDownloadService {
             if (response.statusCode() == 200) {
                 Files.write(Paths.get(savePath), response.body());
                 
-                // Get metadata
-                HttpResponse<String> metaResponse = HttpClient.newHttpClient().send(
-                    HttpRequest.newBuilder()
-                        .uri(URI.create(DOWNLOAD_URL + fileId + "/metadata"))
-                        .GET()
-                        .build(),
-                    HttpResponse.BodyHandlers.ofString()
-                );
-                
-                return "Download successful. Metadata: " + metaResponse.body();
+                // Remove metadata fetch (not needed for HTTP orchestration)
+                return "Download successful.";
             }
             return "Download failed! Response Code: " + response.statusCode();
         } catch (Exception e) {

@@ -7,11 +7,10 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.stereotype.Service;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
-@Service
+@RestController
 public class FileDeletionConsumer {
 
     private final ProcessingJobRepository processingJobRepository;
@@ -32,20 +31,10 @@ public class FileDeletionConsumer {
         this.objectMapper = objectMapper;
     }
 
-    @KafkaListener(
-        topics = "${app.kafka.topics.file-deletion}",
-        groupId = "${app.kafka.groups.file-deletion}",
-        containerFactory = "kafkaListenerContainerFactory"
-    )
-    public void handleFileDeletion(
-        String message,
-        @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-        @Header(KafkaHeaders.RECEIVED_PARTITION) Integer partition,
-        @Header(KafkaHeaders.OFFSET) Long offset
-    ) throws JsonProcessingException, IOException {
+    @PostMapping("/delete-file")
+    public ResponseEntity<String> handleFileDeletion(@RequestBody String message) throws JsonProcessingException, IOException {
         try {
-            log.info("Received file deletion request from topic: {}, partition: {}, offset: {}, message: {}", 
-                topic, partition, offset, message);
+            log.info("Received file deletion request: {}", message);
             
             Map<String, Object> event = objectMapper.readValue(message, Map.class);
             String fileId = (String) event.get("fileId");
@@ -77,9 +66,11 @@ public class FileDeletionConsumer {
             if (!jobOptional.isPresent()) {
                 log.error("Processing job not found for file: {}", fileId);
             }
+            
+            return ResponseEntity.ok("File deletion request processed successfully");
         } catch (Exception e) {
             log.error("Error handling file deletion", e);
-            throw e; // Rethrow to trigger retry
+            return ResponseEntity.badRequest().body("Error processing file deletion request");
         }
     }
 } 

@@ -12,10 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -72,19 +68,14 @@ import com.mpjmp.orchestrator.repository.DeviceInfoRepository;
 @Slf4j
 public class FileSyncService {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
     private final MongoTemplate mongoTemplate;
     private final SyncRuleRepository ruleRepository;
-    private final ReplicationTracker replicationTracker;
     private final DeviceInfoRepository deviceInfoRepository;
 
     @Value("${app.sync.dir}")
     private String syncDir;
-
-    @Value("${kafka.topic.file-sync}")
-    private String fileSyncTopic;
 
     @Value("${app.device.id}")
     private String deviceId;
@@ -113,123 +104,42 @@ public class FileSyncService {
         }).start();
     }
 
-    @PostConstruct
-    public void watchForChanges() {
-        new Thread(() -> {
-            MongoCollection<Document> collection = mongoTemplate.getCollection("fs.files");
-            collection.watch().forEach(change -> {
-                if (change.getOperationType() == OperationType.INSERT) {
-                    Document fileDoc = change.getFullDocument();
-                    String fileId = fileDoc.getObjectId("_id").toString();
-                    kafkaTemplate.send("file-changes", fileId);
-                }
-            });
-        }).start();
-    }
-
     public void replicateFileToDevices(String fileId) {
-        List<DeviceInfo> devices = getOnlineDevices();
-        
-        devices.parallelStream().forEach(device -> {
-            try {
-                replicationTracker.trackProgress(fileId, device.getId(), 0.1);
-                
-                // Initial metadata transfer (10%)
-                transferMetadata(fileId, device.getId());
-                replicationTracker.trackProgress(fileId, device.getId(), 0.3);
-                
-                // File chunks transfer (60%)
-                transferFileChunks(fileId, device.getId());
-                replicationTracker.trackProgress(fileId, device.getId(), 0.9);
-                
-                // Final verification (100%)
-                verifyTransfer(fileId, device.getId());
-                replicationTracker.trackProgress(fileId, device.getId(), 1.0);
-            } catch (Exception e) {
-                log.error("Error replicating file to device {}: {}", device.getId(), e.getMessage());
-            }
-        });
-    }
-
-    @KafkaListener(topics = "${kafka.topic.file-upload}", groupId = "sync-group")
-    public void handleFileUpload(String message) {
         try {
-            Map<String, Object> event = objectMapper.readValue(message, new com.fasterxml.jackson.core.type.TypeReference<HashMap<String, Object>>() {});
-            String fileId = (String) event.get("fileId");
-            String fileName = (String) event.get("fileName");
-            String sourceDeviceId = (String) event.get("deviceId");
-            
-            // Skip if this is our own upload
-            if (deviceId.equals(sourceDeviceId)) {
+            Document fileMetadata = mongoTemplate.getCollection("file_metadata")
+                .find(com.mongodb.client.model.Filters.eq("fileId", fileId))
+                .first();
+            if (fileMetadata == null) {
+                log.error("Metadata not found for file: {}", fileId);
                 return;
             }
-
-            // Check sync rules
-            if (!shouldSyncFile(fileName, sourceDeviceId)) {
-                return;
+            String fileName = fileMetadata.getString("fileName");
+            List<DeviceInfo> devices = deviceInfoRepository.findAll();
+            for (DeviceInfo device : devices) {
+                if (!device.getDeviceId().equals(deviceId) && device.isOnline()) {
+                    uploadFileToDevice(fileId, fileName, device);
+                }
             }
-
-            // Download file from source device
-            downloadFile(fileId, fileName, sourceDeviceId);
-            
-            // Update local version
-            fileVersions.put(fileId, System.currentTimeMillis());
-            
-            log.info("File synchronized: {} from device: {}", fileName, sourceDeviceId);
         } catch (Exception e) {
-            log.error("Error handling file upload for sync", e);
+            log.error("Error replicating file to devices: {}", e.getMessage());
         }
     }
 
-    @KafkaListener(topics = "file.processed", groupId = "sync-group")
-    public void handleFileProcessed(String message) {
+    private void uploadFileToDevice(String fileId, String fileName, DeviceInfo device) {
         try {
-            Map<String, Object> event = objectMapper.readValue(message, new com.fasterxml.jackson.core.type.TypeReference<HashMap<String, Object>>() {});
-            String fileId = (String) event.get("fileId");
-            String fileName = (String) event.get("fileName");
-            String sourceDeviceId = (String) event.get("deviceId");
-            if (deviceId.equals(sourceDeviceId)) {
-                return;
-            }
-            // Add logic to sync file from sourceDeviceId
-            downloadFile(fileId, fileName, sourceDeviceId);
-            fileVersions.put(fileId, System.currentTimeMillis());
-            log.info("File processed and synchronized: {} from device: {}", fileName, sourceDeviceId);
+            Path filePath = Paths.get(syncDir, fileName);
+            byte[] fileContent = Files.readAllBytes(filePath);
+            String uploadUrl = String.format("http://%s:8081/api/files/replicate", device.getIp());
+            Map<String, Object> request = new HashMap<>();
+            request.put("fileId", fileId);
+            request.put("fileName", fileName);
+            request.put("content", fileContent);
+            request.put("version", fileVersions.get(fileId));
+            restTemplate.postForObject(uploadUrl, request, Void.class);
+            log.info("Replicated file {} to device {}", fileName, device.getDeviceId());
         } catch (Exception e) {
-            log.error("Error handling file processed for sync", e);
+            log.error("Failed to replicate file {} to device {}: {}", fileName, device.getDeviceId(), e.getMessage());
         }
-    }
-
-    @Retryable(
-        value = {Exception.class},
-        maxAttempts = 3,
-        backoff = @Backoff(delay = 5000)
-    )
-    private void downloadFile(String fileId, String fileName, String sourceDeviceId) throws IOException {
-        // Create sync directory if it doesn't exist
-        Path syncPath = Paths.get(syncDir);
-        if (!Files.exists(syncPath)) {
-            Files.createDirectories(syncPath);
-        }
-
-        // Download file from source device
-        String downloadUrl = String.format("http://%s:8081/api/files/%s/download", sourceDeviceId, fileId);
-        byte[] fileContent = restTemplate.getForObject(downloadUrl, byte[].class);
-
-        // Save file
-        Path filePath = syncPath.resolve(fileName);
-        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
-            fos.write(fileContent);
-        }
-    }
-
-    private boolean shouldSyncFile(String filePath, String deviceId) {
-        List<SyncRule> rules = ruleRepository.findByDeviceId(deviceId);
-        return rules.stream().anyMatch(rule -> 
-            rule.isEnabled() && 
-            filePath.matches(rule.getPathPattern()) &&
-            rule.getDirection() != SyncDirection.UPLOAD_ONLY
-        );
     }
 
     public void handleFileConflict(String fileId, String fileName, String sourceDeviceId, long sourceVersion) {
@@ -258,34 +168,31 @@ public class FileSyncService {
         }
     }
 
-    @Retryable(
-        value = {Exception.class},
-        maxAttempts = 3,
-        backoff = @Backoff(delay = 5000)
-    )
-    private void uploadFile(String fileId, String fileName, String targetDeviceId) throws IOException {
-        Path filePath = Paths.get(syncDir, fileName);
-        byte[] fileContent = Files.readAllBytes(filePath);
+    private void downloadFile(String fileId, String fileName, String sourceDeviceId) throws IOException {
+        // Create sync directory if it doesn't exist
+        Path syncPath = Paths.get(syncDir);
+        if (!Files.exists(syncPath)) {
+            Files.createDirectories(syncPath);
+        }
 
-        // Send file to target device
-        String uploadUrl = String.format("http://%s:8081/api/files/sync", targetDeviceId);
-        Map<String, Object> request = new HashMap<>();
-        request.put("fileId", fileId);
-        request.put("fileName", fileName);
-        request.put("content", fileContent);
-        request.put("version", fileVersions.get(fileId));
+        // Download file from source device
+        String downloadUrl = String.format("http://%s:8081/api/files/%s/download", sourceDeviceId, fileId);
+        byte[] fileContent = restTemplate.getForObject(downloadUrl, byte[].class);
 
-        restTemplate.postForObject(uploadUrl, request, Void.class);
+        // Save file
+        Path filePath = syncPath.resolve(fileName);
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
+            fos.write(fileContent);
+        }
     }
 
-    private List<DeviceInfo> getOnlineDevices() {
-        // Get all devices that are marked as online
-        List<DeviceInfo> onlineDevices = deviceInfoRepository.findByOnline(true);
-        
-        // Filter out the current device
-        return onlineDevices.stream()
-            .filter(device -> !device.getId().equals(deviceId))
-            .collect(Collectors.toList());
+    private boolean shouldSyncFile(String filePath, String deviceId) {
+        List<SyncRule> rules = ruleRepository.findByDeviceId(deviceId);
+        return rules.stream().anyMatch(rule -> 
+            rule.isEnabled() && 
+            filePath.matches(rule.getPathPattern()) &&
+            rule.getDirection() != SyncDirection.UPLOAD_ONLY
+        );
     }
 
     private void transferMetadata(String fileId, String deviceId) {
@@ -395,7 +302,7 @@ public class FileSyncService {
                     
                     // Update progress
                     double progress = 0.3 + (0.6 * currentChunk / totalChunks);
-                    replicationTracker.trackProgress(fileId, deviceId, progress);
+                    // replicationTracker.trackProgress(fileId, deviceId, progress);
                 }
             }
             
@@ -451,5 +358,15 @@ public class FileSyncService {
         } catch (Exception e) {
             log.error("Error verifying file transfer for file: {} to device: {}", fileId, deviceId, e);
         }
+    }
+
+    private List<DeviceInfo> getOnlineDevices() {
+        // Get all devices that are marked as online
+        List<DeviceInfo> onlineDevices = deviceInfoRepository.findByOnline(true);
+        
+        // Filter out the current device
+        return onlineDevices.stream()
+            .filter(device -> !device.getId().equals(deviceId))
+            .collect(Collectors.toList());
     }
 }
