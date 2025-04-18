@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mpjmp.orchestrator.model.DeviceInfo;
 import com.mpjmp.orchestrator.model.FileChangeEvent;
 import com.mpjmp.orchestrator.model.SyncDirection;
+import com.mpjmp.orchestrator.model.SyncHistory;
 import com.mpjmp.orchestrator.model.SyncRule;
 import com.mpjmp.orchestrator.repository.SyncRuleRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,8 +48,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.mongodb.client.gridfs.GridFSBucket;
 import com.mongodb.client.gridfs.GridFSDownloadStream;
-import com.mongodb.client.gridfs.GridFSFile;
-import com.mongodb.client.gridfs.model.GridFSFileObjectId;
+import com.mongodb.client.gridfs.model.GridFSFile;
+import com.mongodb.client.gridfs.GridFSBuckets;
 import org.bson.types.ObjectId;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
@@ -65,7 +66,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.mpjmp.orchestrator.repository.DeviceInfoRepository;
-import com.mpjmp.orchestrator.model.SyncHistory;
 
 @Service
 @RequiredArgsConstructor
@@ -362,6 +362,15 @@ public class FileSyncService {
                 long currentChunk = 0;
                 
                 while ((bytesRead = downloadStream.read(buffer)) != -1) {
+                    // Before creating ByteArrayResource
+                    final long chunkIndexForResource = currentChunk;
+                    ByteArrayResource resource = new ByteArrayResource(java.util.Arrays.copyOf(buffer, bytesRead)) {
+                        @Override
+                        public String getFilename() {
+                            return fileName + ".part" + chunkIndexForResource;
+                        }
+                    };
+                    
                     // Send chunk to device
                     String chunkUrl = String.format("http://%s:8081/api/files/chunk", device.getDeviceName());
                     
@@ -371,13 +380,6 @@ public class FileSyncService {
                     body.add("chunkIndex", currentChunk);
                     body.add("totalChunks", totalChunks);
                     
-                    // Create a ByteArrayResource from the buffer
-                    ByteArrayResource resource = new ByteArrayResource(java.util.Arrays.copyOf(buffer, bytesRead)) {
-                        @Override
-                        public String getFilename() {
-                            return fileName + ".part" + currentChunk;
-                        }
-                    };
                     body.add("chunk", resource);
                     
                     HttpHeaders headers = new HttpHeaders();

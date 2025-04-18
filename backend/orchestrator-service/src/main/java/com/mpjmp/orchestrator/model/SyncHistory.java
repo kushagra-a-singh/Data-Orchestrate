@@ -11,6 +11,10 @@ public class SyncHistory {
     private String deviceId;
     private String fileId;
     private LocalDateTime timestamp;
+    private String sourceDeviceId;
+    private String targetDeviceId;
+    private LocalDateTime syncTime;
+    private String status;
 
     public SyncHistory() {}
 
@@ -29,4 +33,12 @@ public class SyncHistory {
     public void setFileId(String fileId) { this.fileId = fileId; }
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public String getSourceDeviceId() { return sourceDeviceId; }
+    public void setSourceDeviceId(String sourceDeviceId) { this.sourceDeviceId = sourceDeviceId; }
+    public String getTargetDeviceId() { return targetDeviceId; }
+    public void setTargetDeviceId(String targetDeviceId) { this.targetDeviceId = targetDeviceId; }
+    public LocalDateTime getSyncTime() { return syncTime; }
+    public void setSyncTime(LocalDateTime syncTime) { this.syncTime = syncTime; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }
