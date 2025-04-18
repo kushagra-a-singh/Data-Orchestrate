@@ -37,7 +37,7 @@ public class FileUploadService {
     @Value("${app.upload.dir}")
     private String uploadDir;
 
-    private String getAbsoluteUploadDir() {
+    public String getAbsoluteUploadDir() {
         // Always use an absolute path for uploads
         Path absPath = Paths.get(uploadDir).toAbsolutePath();
         if (!Files.exists(absPath)) {
