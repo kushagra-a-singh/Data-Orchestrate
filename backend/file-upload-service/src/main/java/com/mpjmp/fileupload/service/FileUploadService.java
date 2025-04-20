@@ -10,7 +10,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -20,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,7 +90,9 @@ public class FileUploadService {
         metadata.setStoragePath(savedFilePath.toAbsolutePath().toString());
         FileMetadata savedMetadata = fileMetadataRepository.save(metadata);
         try {
-            // TODO: Implement HTTP-based event notifications or calls
+            // Notify peer devices about the new file
+            notifyPeerDevicesAboutNewFile(savedMetadata);
+            
             savedMetadata.setStatus("UPLOADED");
             savedMetadata = fileMetadataRepository.save(savedMetadata);
             // TODO: Implement HTTP-based notification
@@ -201,5 +208,66 @@ public class FileUploadService {
 
     public FileMetadata updateFileMetadata(FileMetadata metadata) {
         return fileMetadataRepository.save(metadata);
+    }
+
+    /**
+     * Notify peer devices about a new file that was uploaded
+     * This triggers replication to other devices in the network
+     */
+    private void notifyPeerDevicesAboutNewFile(FileMetadata metadata) {
+        try {
+            // Get list of peer devices from configuration or database
+            List<String> peerDevices = getPeerDeviceUrls();
+            
+            // Create a replication request object
+            Map<String, Object> replicationRequest = new HashMap<>();
+            replicationRequest.put("fileId", metadata.getFileName()); // <-- UUID filename as string
+replicationRequest.put("fileName", metadata.getOriginalFileName());
+            replicationRequest.put("deviceId", metadata.getDeviceId());
+            replicationRequest.put("sourceDeviceUrl", "http://localhost:8081");  // URL of this device
+            
+            // Convert to JSON
+            String requestJson = objectMapper.writeValueAsString(replicationRequest);
+            
+            // Set headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            // Create HTTP entity
+            HttpEntity<String> entity = new HttpEntity<>(requestJson, headers);
+            
+            // Send to all peer devices
+            RestTemplate restTemplate = new RestTemplate();
+            for (String peerUrl : peerDevices) {
+                try {
+                    String replicationEndpoint = peerUrl + "/replicate-file";
+                    log.info("Sending replication request to peer device: {}", replicationEndpoint);
+                    restTemplate.postForEntity(
+                            replicationEndpoint, 
+                            entity, 
+                            String.class);
+                    log.info("Replication request sent to {}", peerUrl);
+                } catch (Exception e) {
+                    log.error("Failed to send replication request to peer device {}: {}", peerUrl, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error notifying peer devices about new file: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Get the list of peer device URLs for replication
+     * In a production environment, this would come from a service registry or configuration
+     */
+    private List<String> getPeerDeviceUrls() {
+        // For now, hardcode peer devices for testing
+        // In production, this would come from a service registry or database
+        List<String> peerUrls = new ArrayList<>();
+        
+        // Add your Device B's storage-service URL here
+        peerUrls.add("http://192.168.1.5:8085");  // Example: Device B's storage-service
+        
+        return peerUrls;
     }
 }

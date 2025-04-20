@@ -50,23 +50,11 @@ public class ReplicationListenerService {
             // Use deviceId and fileName for replication and download from filesystem endpoint
             String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "";
 
-            // Extract the fileName from the FileMetadata object
-            // The fileId field in the request actually contains the entire FileMetadata object as JSON
-            String fileName;
-            try {
-                // Parse the fileId as JSON to extract the fileName field
-                ObjectMapper mapper = new ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode fileMetadataNode = mapper.readTree(request.getFileId().toString());
-                fileName = fileMetadataNode.get("fileName").asText();
-                log.info("[REPLICATION-LISTENER] Extracted fileName from metadata: {}", fileName);
-            } catch (Exception e) {
-                // Fallback to using the fileName from the request if JSON parsing fails
-                fileName = request.getFileName();
-                log.warn("[REPLICATION-LISTENER] Failed to parse fileId as JSON, using request fileName: {}", fileName);
-            }
-
-            // Use UUID fileName for download (fileName in request is UUID, not original)
             // --- CRITICAL: Always use the stored (UUID) file name for download, not originalFileName ---
+            // Use fileName (UUID) from request, fallback to fileId if fileName is null
+            String fileName = request.getFileName() != null ? request.getFileName() : request.getFileId();
+            log.info("[REPLICATION-LISTENER] Using fileName (UUID): {}", fileName);
+
             String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + fileName;
             log.info("[REPLICATION-LISTENER] Attempting to download file from: {}", downloadUrl);
 
