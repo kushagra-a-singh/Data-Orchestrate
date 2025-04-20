@@ -2,9 +2,12 @@ package com.mpjmp.fileupload.service;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ContextConfiguration;
+import com.mpjmp.fileupload.DotenvInitializer;
 
 @SpringBootTest
-class FileUploadServiceApplicationTests {
+@ContextConfiguration(initializers = DotenvInitializer.class)
+public class FileUploadServiceApplicationTests {
 
 	@Test
 	void contextLoads() {

@@ -48,6 +48,7 @@
 			<version>1.18.30</version>
 			<scope>provided</scope>
 		</dependency>
+		<!-- Removed spring-dotenv as per working frontend pattern -->
 		<dependency>
 			<groupId>io.github.cdimascio</groupId>
 			<artifactId>dotenv-java</artifactId>
