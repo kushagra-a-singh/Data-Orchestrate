@@ -1,30 +1,15 @@
 package com.mpjmp.fileupload.service;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
-import com.mongodb.client.gridfs.GridFSBucket;
-import com.mongodb.client.gridfs.GridFSDownloadStream;
-import com.mongodb.client.gridfs.model.GridFSFile;
-import com.mongodb.client.gridfs.model.GridFSUploadOptions;
-import org.bson.Document;
-import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Service
 public class FileStorageService {
-
-    private final GridFSBucket gridFsBucket;
-
-    @Autowired
-    public FileStorageService(GridFSBucket gridFsBucket) {
-        this.gridFsBucket = gridFsBucket;
-    }
 
     // --- METADATA VALIDATION ---
     private void validateMetadata(MultipartFile file, String uploadedBy, String targetDirectory) {
@@ -37,23 +22,13 @@ public class FileStorageService {
     // --- ENSURE FULL METADATA ON UPLOAD ---
     public String storeFile(MultipartFile file, String uploadedBy, String targetDirectory) throws IOException {
         validateMetadata(file, uploadedBy, targetDirectory);
-        Document metadata = new Document()
-            .append("uploadedBy", uploadedBy)
-            .append("originalFilename", file.getOriginalFilename())
-            .append("contentType", file.getContentType())
-            .append("targetDirectory", targetDirectory)
-            .append("timestamp", System.currentTimeMillis());
-        ObjectId fileId = gridFsBucket.uploadFromStream(
-            file.getOriginalFilename(), 
-            file.getInputStream(),
-            new GridFSUploadOptions().metadata(metadata)
-        );
-        return fileId.toString();
-    }
-    
-    public byte[] getFile(String fileId) {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        gridFsBucket.downloadToStream(new ObjectId(fileId), outputStream);
-        return outputStream.toByteArray();
+        // Define the base uploads directory (adjust as needed)
+        Path uploadsDir = Paths.get("./data/uploads");
+        Files.createDirectories(uploadsDir);
+        Path targetDir = uploadsDir.resolve(targetDirectory);
+        Files.createDirectories(targetDir);
+        Path filePath = targetDir.resolve(file.getOriginalFilename());
+        file.transferTo(filePath);
+        return filePath.getFileName().toString(); // Return file name for downstream use
     }
 }

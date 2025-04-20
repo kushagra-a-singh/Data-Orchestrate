@@ -27,14 +27,30 @@ public class ReplicationListenerService {
     public ResponseEntity<String> receiveFileReplicationRequest(@RequestBody ReplicationRequest request) {
         log.info("Received file replication request for fileId: {} from sourceDeviceUrl: {}", request.getFileId(), request.getSourceDeviceUrl());
         try {
-            // Build the download URL using the correct endpoint as tested in Postman
-            String downloadUrl = request.getSourceDeviceUrl() + "/api/files/download/" + request.getFileId();
+            // Robustly extract the actual URL from Markdown or bracketed format, including optional port
+            String rawUrl = request.getSourceDeviceUrl();
+            String sourceUrl = rawUrl;
+
+            // Try to match Markdown [text](url):port
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\[.*\\]\\((http[^)]+)\\)(:\\d+)?");
+            java.util.regex.Matcher matcher = pattern.matcher(sourceUrl);
+            if (matcher.matches()) {
+                sourceUrl = matcher.group(1); // URL inside ()
+                if (matcher.group(2) != null) {
+                    sourceUrl += matcher.group(2); // Append port if present
+                }
+            } else {
+                // Fallback: remove brackets and spaces
+                sourceUrl = sourceUrl.replaceAll("[\\[\\]\s]", "");
+            }
+
+            log.info("Final sanitized sourceDeviceUrl: {}", sourceUrl);
+            // Use fileName for replication and download from filesystem endpoint
+            String downloadUrl = sourceUrl + "/api/files/download/" + request.getFileName();
             log.info("Attempting to download file from: {}", downloadUrl);
 
-            // Use RestTemplate to download the file as byte[]
             org.springframework.http.ResponseEntity<byte[]> response = new org.springframework.web.client.RestTemplate().getForEntity(downloadUrl, byte[].class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                // Save the file to the replicated directory (e.g., storageDir/replicated/filename)
                 java.nio.file.Path replicatedDir = java.nio.file.Paths.get("./data/replicated");
                 java.nio.file.Files.createDirectories(replicatedDir);
                 java.nio.file.Path targetPath = replicatedDir.resolve(request.getFileName());
