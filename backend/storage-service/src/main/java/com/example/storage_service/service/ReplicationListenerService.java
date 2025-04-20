@@ -47,6 +47,7 @@ public class ReplicationListenerService {
             log.info("Final sanitized sourceDeviceUrl: {}", sourceUrl);
             // Use deviceId and fileName for replication and download from filesystem endpoint
             String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "";
+            // Use UUID fileName for download (fileName in request is UUID, not original)
             String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + request.getFileName();
             log.info("Attempting to download file from: {}", downloadUrl);
 

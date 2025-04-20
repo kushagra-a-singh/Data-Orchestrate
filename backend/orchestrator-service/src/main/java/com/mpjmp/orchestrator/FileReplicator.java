@@ -54,9 +54,10 @@ public class FileReplicator {
 
             // Set up ReplicationRequest payload
             Map<String, Object> payload = new HashMap<>();
-            payload.put("fileId", fileName); // Assuming fileName is used as fileId, adjust if needed
-            payload.put("fileName", fileName);
-            payload.put("sourceDeviceUrl", "${SOURCE_DEVICE_URL}"); // TODO: Replace with actual device URL or config property
+            payload.put("fileId", fileName); // fileName is the UUID (stored file name)
+            payload.put("fileName", fileName); // fileName is the UUID
+            payload.put("deviceId", deviceId);
+            payload.put("sourceDeviceUrl", getLocalDeviceUrl()); // Helper method to get local device base URL
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -74,6 +75,22 @@ public class FileReplicator {
             replicatedFiles.add(fileKey);
         } catch (Exception e) {
             log.error("Error replicating file {}", filePath, e);
+        }
+    }
+
+    // Helper to get this device's base URL (auto-detects IP and port)
+    private String getLocalDeviceUrl() {
+        try {
+            String ip = java.net.InetAddress.getLocalHost().getHostAddress();
+            // Try to get port from server.port property or default to 8080
+            String port = System.getProperty("server.port");
+            if (port == null || port.isEmpty()) {
+                port = System.getenv().getOrDefault("SERVER_PORT", "8080");
+            }
+            return "http://" + ip + ":" + port;
+        } catch (Exception e) {
+            log.warn("Could not auto-detect device IP, defaulting to localhost:8080");
+            return "http://localhost:8080";
         }
     }
 }
