@@ -22,10 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.mpjmp.gui.util.DeviceIdentifier;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.util.Enumeration;
 
 public class FileUploadController {
     @FXML private ProgressBar progressBar;
@@ -145,67 +141,13 @@ public class FileUploadController {
                     throw new RuntimeException("MONGODB_URI environment variable is not set.");
                 }
                 
-                // Get device/user metadata
-                String uploadedBy = System.getProperty("user.name", "unknown-user");
-                String deviceName = DeviceIdentifier.getDeviceName();
-                String deviceId = DeviceIdentifier.getDeviceId();
-                String deviceIp = "UNKNOWN";
-                String deviceMac = "UNKNOWN";
-                try {
-                    InetAddress ip = InetAddress.getLocalHost();
-                    deviceIp = ip.getHostAddress();
-                    NetworkInterface ni = NetworkInterface.getByInetAddress(ip);
-                    if (ni != null) {
-                        byte[] mac = ni.getHardwareAddress();
-                        if (mac != null) {
-                            StringBuilder sb = new StringBuilder();
-                            for (int i = 0; i < mac.length; i++) {
-                                sb.append(String.format("%02X%s", mac[i], (i < mac.length - 1) ? ":" : ""));
-                            }
-                            deviceMac = sb.toString();
-                        }
-                    }
-                } catch (Exception ignore) {}
-                String timezone = "Asia/Kolkata";
                 MongoClient mongoClient = MongoClients.create(uri);
                 AtlasUploadService service = new AtlasUploadService(mongoClient);
-                String fileId = service.uploadDirectToAtlas(selectedFile, uploadedBy, deviceName, deviceIp, deviceMac, timezone);
-                String fileName = selectedFile.getName();
-                String sourceDeviceUrl = System.getProperty("SOURCE_DEVICE_URL", "http://localhost:8081"); // Or fetch from config/UI
-                String replicateUrl = "http://localhost:8085/replicate-file"; // Replace with orchestrator/replication endpoint as needed
-
-                String json = String.format(
-                    "{\"fileId\":\"%s\",\"fileName\":\"%s\",\"deviceId\":\"%s\",\"sourceDeviceUrl\":\"%s\"}",
-                    fileId, fileName, deviceId, sourceDeviceUrl
-                );
-                try {
-                    java.net.URL url = new java.net.URL(replicateUrl);
-                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("POST");
-                    conn.setRequestProperty("Content-Type", "application/json");
-                    conn.setDoOutput(true);
-                    try (java.io.OutputStream os = conn.getOutputStream()) {
-                        byte[] input = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                        os.write(input, 0, input.length);
-                    }
-                    int responseCode = conn.getResponseCode();
-                    if (responseCode == 200) {
-                        Platform.runLater(() -> {
-                            updateStatus("Upload and replication successful! ID: " + fileId, Color.GREEN);
-                            progressBar.setProgress(1);
-                        });
-                    } else {
-                        Platform.runLater(() -> {
-                            updateStatus("Upload OK, replication failed: HTTP " + responseCode, Color.ORANGE);
-                            progressBar.setProgress(1);
-                        });
-                    }
-                } catch (Exception ex) {
-                    Platform.runLater(() -> {
-                        updateStatus("Upload OK, replication error: " + ex.getMessage(), Color.ORANGE);
-                        progressBar.setProgress(1);
-                    });
-                }
+                String fileId = service.uploadDirectToAtlas(selectedFile);
+                Platform.runLater(() -> {
+                    updateStatus("Upload successful! ID: " + fileId, Color.GREEN);
+                    progressBar.setProgress(1);
+                });
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     showErrorDialog("Upload failed", e.getMessage());
