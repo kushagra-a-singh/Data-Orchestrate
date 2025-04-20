@@ -58,6 +58,8 @@ public class FileReplicator {
             payload.put("deviceId", deviceId);
             payload.put("sourceDeviceUrl", getLocalDeviceUrl());
 
+            // --- LOG: Ensure UUID fileName is being sent ---
+            log.info("[REPLICATION] About to replicate. fileName (UUID): {}, deviceId: {}", fileName, deviceId);
             log.info("[REPLICATION] Payload for {}: {}", fileName, payload);
             log.info("[REPLICATION] Replicating file from path: {} (deviceId: {})", filePath, deviceId);
 

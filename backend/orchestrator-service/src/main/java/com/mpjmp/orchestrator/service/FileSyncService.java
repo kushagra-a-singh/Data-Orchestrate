@@ -113,11 +113,18 @@ public class FileSyncService {
                 log.error("Metadata not found for file: {}", fileId);
                 return;
             }
-            String fileName = fileMetadata.getString("fileName");
+            
+            // --- ENSURE: Always use UUID file name for replication ---
+            String uuidFileName = fileMetadata.getString("uuidFileName") != null ? fileMetadata.getString("uuidFileName") : fileMetadata.getString("fileName");
+            // If uuidFileName is null, log error and skip
+            if (uuidFileName == null) {
+                log.error("Could not determine UUID file name for fileId: {}. fileMetadata: {}", fileId, fileMetadata);
+                return;
+            }
             List<DeviceInfo> devices = deviceInfoRepository.findAll();
             for (DeviceInfo device : devices) {
                 if (!device.getDeviceId().equals(deviceId) && device.isOnline()) {
-                    uploadFileToDevice(fileId, fileName, device);
+                    uploadFileToDevice(fileId, uuidFileName, device);
                 }
             }
         } catch (Exception e) {
@@ -132,7 +139,7 @@ public class FileSyncService {
             String uploadUrl = String.format("http://%s:8081/api/files/replicate", device.getDeviceName());
             Map<String, Object> request = new HashMap<>();
             request.put("fileId", fileId);
-            request.put("fileName", fileName);
+            request.put("fileName", fileName); // Always UUID
             request.put("content", fileContent);
             request.put("version", fileVersions.get(fileId));
             restTemplate.postForObject(uploadUrl, request, Void.class);
