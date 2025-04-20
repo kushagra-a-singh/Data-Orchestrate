@@ -51,8 +51,29 @@ public class ReplicationListenerService {
             String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "";
 
             // --- CRITICAL: Always use the stored (UUID) file name for download, not originalFileName ---
-            // Use fileName (UUID) from request, fallback to fileId if fileName is null
-            String fileName = request.getFileName() != null ? request.getFileName() : request.getFileId();
+            // Try to fetch file metadata from source device using fileId, to get the correct stored file name (UUID)
+            String fileName = request.getFileName();
+            if (fileName == null || fileName.isEmpty()) {
+                // Attempt to fetch metadata from source device
+                try {
+                    String metadataUrl = sourceUrl + "/api/files/metadata/" + request.getFileId();
+                    log.info("[REPLICATION-LISTENER] Fetching metadata from: {}", metadataUrl);
+                    org.springframework.http.ResponseEntity<String> metaResp = new org.springframework.web.client.RestTemplate().getForEntity(metadataUrl, String.class);
+                    if (metaResp.getStatusCode().is2xxSuccessful() && metaResp.getBody() != null) {
+                        com.fasterxml.jackson.databind.JsonNode metaJson = new com.fasterxml.jackson.databind.ObjectMapper().readTree(metaResp.getBody());
+                        if (metaJson.has("fileName")) {
+                            fileName = metaJson.get("fileName").asText();
+                            log.info("[REPLICATION-LISTENER] Got fileName (UUID) from metadata: {}", fileName);
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("[REPLICATION-LISTENER] Could not fetch file metadata from source device: {}", ex.getMessage());
+                }
+            }
+            if (fileName == null || fileName.isEmpty()) {
+                log.error("[REPLICATION-LISTENER] fileName could not be determined for replication!");
+                return ResponseEntity.status(400).body("fileName could not be determined.");
+            }
             log.info("[REPLICATION-LISTENER] Using fileName (UUID): {}", fileName);
 
             String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + fileName;
