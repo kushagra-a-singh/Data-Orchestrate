@@ -42,6 +42,9 @@ public class FileUploadService {
     @Value("${app.upload.dir}")
     private String uploadDir;
 
+    @Value("${app.device.url}")
+    private String deviceUrl;
+
     public String getAbsoluteUploadDir() {
         // Always use an absolute path for uploads
         Path absPath = Paths.get(uploadDir).toAbsolutePath();
@@ -240,7 +243,7 @@ public class FileUploadService {
             replicationRequest.put("fileName", metadata.getFileName()); // Use UUID for fileName for replication
             replicationRequest.put("originalFileName", metadata.getOriginalFileName()); // For traceability
             replicationRequest.put("deviceId", metadata.getDeviceId());
-            replicationRequest.put("sourceDeviceUrl", "http://localhost:8081");  // URL of this device (should be configurable)
+            replicationRequest.put("sourceDeviceUrl", deviceUrl);  // Use configured device URL
 
             // Convert to JSON
             String requestJson = objectMapper.writeValueAsString(replicationRequest);
