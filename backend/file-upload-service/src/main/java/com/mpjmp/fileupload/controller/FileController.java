@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -96,6 +98,23 @@ public class FileController {
         log.info("[SYNC] File received and saved at {}", filePath.toAbsolutePath());
         // Optionally: Save metadata here if needed
         return ResponseEntity.ok().build();
+    }
+
+    // Download file by deviceId and fileName from local filesystem (for replication)
+    @GetMapping("/download/{deviceId}/{fileName}")
+    public ResponseEntity<InputStreamResource> downloadFileByDevice(
+            @PathVariable String deviceId,
+            @PathVariable String fileName) throws IOException {
+        Path filePath = Paths.get(fileUploadService.getAbsoluteUploadDir()).resolve(deviceId).resolve(fileName);
+        if (!Files.exists(filePath)) {
+            return ResponseEntity.notFound().build();
+        }
+        InputStream inputStream = Files.newInputStream(filePath);
+        InputStreamResource resource = new InputStreamResource(inputStream);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
     }
 
     @GetMapping("/list")
