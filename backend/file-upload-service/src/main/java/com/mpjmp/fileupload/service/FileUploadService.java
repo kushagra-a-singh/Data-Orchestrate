@@ -116,6 +116,17 @@ public class FileUploadService {
         return fileMetadataRepository.findById(fileId).orElse(null);
     }
 
+    /**
+     * Get FileMetadata by stored (UUID) file name and deviceId
+     */
+    public FileMetadata getFileMetadataByStoredFileName(String deviceId, String fileName) {
+        // Query by deviceId and fileName (UUID)
+        org.springframework.data.mongodb.core.query.Query query = new org.springframework.data.mongodb.core.query.Query();
+        query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("deviceId").is(deviceId)
+                .and("fileName").is(fileName));
+        return mongoTemplate.findOne(query, FileMetadata.class);
+    }
+
     public List<FileMetadata> listFiles(String status, String uploadedBy) {
         Query query = new Query();
         

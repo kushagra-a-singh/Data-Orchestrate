@@ -113,6 +113,8 @@ public class FileController {
         // Defensive: decode fileName in case it's URL-encoded (spaces, special chars)
         String decodedFileName = URLDecoder.decode(fileName, java.nio.charset.StandardCharsets.UTF_8);
         log.info("[DOWNLOAD] Decoded fileName: {}", decodedFileName);
+
+        // --- CRITICAL: Always use the UUID (stored) fileName for lookup, not originalFileName ---
         Path filePath = Paths.get(fileUploadService.getAbsoluteUploadDir()).resolve(deviceId).resolve(decodedFileName);
         log.info("[DOWNLOAD] Resolved filePath: {}", filePath.toAbsolutePath());
         if (!Files.exists(filePath)) {
@@ -121,8 +123,15 @@ public class FileController {
         }
         InputStream inputStream = Files.newInputStream(filePath);
         InputStreamResource resource = new InputStreamResource(inputStream);
+        // Always set Content-Disposition to the original file name if possible
+        String originalFileName = decodedFileName;
+        // Try to get originalFileName from metadata
+        FileMetadata metadata = fileUploadService.getFileMetadataByStoredFileName(deviceId, decodedFileName);
+        if (metadata != null && metadata.getOriginalFileName() != null) {
+            originalFileName = metadata.getOriginalFileName();
+        }
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + decodedFileName)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + originalFileName + "\"")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
     }
@@ -164,4 +173,4 @@ public class FileController {
         // Implement logic to get device IP
         return "localhost"; // Placeholder
     }
-} 
+}
