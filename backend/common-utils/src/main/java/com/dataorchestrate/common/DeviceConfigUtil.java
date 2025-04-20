@@ -2,6 +2,7 @@ package com.dataorchestrate.common;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,10 +24,15 @@ public class DeviceConfigUtil {
 
     static {
         try {
+            // Load .env file if present
+            Dotenv dotenv = Dotenv.configure()
+                .directory("../../../../..") // project root
+                .ignoreIfMalformed()
+                .ignoreIfMissing()
+                .load();
             // Try to load from classpath first
             InputStream is = DeviceConfigUtil.class.getClassLoader().getResourceAsStream("devices.json");
             if (is == null) {
-                // Fallback to file in resources
                 File file = new File("backend/common-utils/src/main/resources/devices.json");
                 is = file.exists() ? new java.io.FileInputStream(file) : null;
             }
@@ -34,14 +40,15 @@ public class DeviceConfigUtil {
                 ObjectMapper mapper = new ObjectMapper();
                 devices = mapper.readValue(is, new TypeReference<List<Map<String, String>>>() {});
                 is.close();
-                // Prefer env variable
-                selfDeviceName = System.getenv("DEVICE_NAME");
+                // Prefer DEVICE_NAME from .env, then environment
+                selfDeviceName = dotenv.get("DEVICE_NAME");
                 if (selfDeviceName == null || selfDeviceName.isEmpty()) {
-                    // Try system property (e.g. -DDEVICE_NAME=...)
+                    selfDeviceName = System.getenv("DEVICE_NAME");
+                }
+                if (selfDeviceName == null || selfDeviceName.isEmpty()) {
                     selfDeviceName = System.getProperty("DEVICE_NAME");
                 }
                 if (selfDeviceName == null || selfDeviceName.isEmpty()) {
-                    // Try Windows username as fallback
                     String winUser = System.getenv("USERNAME");
                     if (winUser != null && !winUser.isEmpty()) {
                         Optional<Map<String, String>> match = devices.stream().filter(d -> winUser.equalsIgnoreCase(d.get("name")) || winUser.equalsIgnoreCase(d.get("hostname"))).findFirst();
@@ -51,7 +58,6 @@ public class DeviceConfigUtil {
                     }
                 }
                 if (selfDeviceName == null || selfDeviceName.isEmpty()) {
-                    // Fallback: try to auto-detect by hostname
                     String hostname = java.net.InetAddress.getLocalHost().getHostName();
                     Optional<Map<String, String>> match = devices.stream().filter(d -> hostname.equalsIgnoreCase(d.get("name")) || hostname.equalsIgnoreCase(d.get("hostname"))).findFirst();
                     if (match.isPresent()) {

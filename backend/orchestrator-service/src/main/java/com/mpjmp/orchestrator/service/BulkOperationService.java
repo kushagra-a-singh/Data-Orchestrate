@@ -1,3 +1,5 @@
+package com.mpjmp.orchestrator.service;
+
 import com.mpjmp.orchestrator.model.BulkOperation;
 import com.mpjmp.orchestrator.model.BulkOperationStatus;
 import org.springframework.stereotype.Service;
