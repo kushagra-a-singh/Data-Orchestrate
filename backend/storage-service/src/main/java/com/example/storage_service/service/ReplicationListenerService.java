@@ -53,6 +53,7 @@ public class ReplicationListenerService {
             // --- CRITICAL: Always use the stored (UUID) file name for download, not originalFileName ---
             // Try to fetch file metadata from source device using fileId, to get the correct stored file name (UUID)
             String fileName = request.getFileName();
+            String originalFileName = request.getOriginalFileName(); // for traceability
             if (fileName == null || fileName.isEmpty()) {
                 // Attempt to fetch metadata from source device
                 try {
@@ -65,6 +66,10 @@ public class ReplicationListenerService {
                             fileName = metaJson.get("fileName").asText();
                             log.info("[REPLICATION-LISTENER] Got fileName (UUID) from metadata: {}", fileName);
                         }
+                        if (metaJson.has("originalFileName")) {
+                            originalFileName = metaJson.get("originalFileName").asText();
+                            log.info("[REPLICATION-LISTENER] Got originalFileName from metadata: {}", originalFileName);
+                        }
                     }
                 } catch (Exception ex) {
                     log.warn("[REPLICATION-LISTENER] Could not fetch file metadata from source device: {}", ex.getMessage());
@@ -74,7 +79,7 @@ public class ReplicationListenerService {
                 log.error("[REPLICATION-LISTENER] fileName could not be determined for replication!");
                 return ResponseEntity.status(400).body("fileName could not be determined.");
             }
-            log.info("[REPLICATION-LISTENER] Using fileName (UUID): {}", fileName);
+            log.info("[REPLICATION-LISTENER] Using fileName (UUID): {}, originalFileName: {}", fileName, originalFileName);
 
             String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + fileName;
             log.info("[REPLICATION-LISTENER] Attempting to download file from: {}", downloadUrl);

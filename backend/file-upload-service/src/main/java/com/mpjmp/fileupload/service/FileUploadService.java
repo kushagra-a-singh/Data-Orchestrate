@@ -67,17 +67,31 @@ public class FileUploadService {
             Files.createDirectories(uploadPath);
         }
         String originalFilename = file.getOriginalFilename();
-        String fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        String fileName = UUID.randomUUID().toString() + fileExtension;
-        saveFile(file, uploadPath, fileName);
-        Path savedFilePath = uploadPath.resolve(fileName);
+        // --- COLLISION HANDLING ---
+        String fileNameToSave = originalFilename;
+        Path candidatePath = uploadPath.resolve(fileNameToSave);
+        int count = 1;
+        String namePart = originalFilename;
+        String extPart = "";
+        int dotIdx = originalFilename.lastIndexOf('.');
+        if (dotIdx > 0) {
+            namePart = originalFilename.substring(0, dotIdx);
+            extPart = originalFilename.substring(dotIdx);
+        }
+        while (Files.exists(candidatePath)) {
+            fileNameToSave = String.format("%s (%d)%s", namePart, count, extPart);
+            candidatePath = uploadPath.resolve(fileNameToSave);
+            count++;
+        }
+        saveFile(file, uploadPath, fileNameToSave);
+        Path savedFilePath = uploadPath.resolve(fileNameToSave);
         if (Files.exists(savedFilePath)) {
             log.info("File saved successfully at: {}", savedFilePath.toAbsolutePath());
         } else {
             log.error("File was NOT saved at: {}", savedFilePath.toAbsolutePath());
         }
         FileMetadata metadata = new FileMetadata();
-        metadata.setFileName(fileName);
+        metadata.setFileName(fileNameToSave); // store actual saved file name
         metadata.setOriginalFileName(originalFilename);
         metadata.setContentType(file.getContentType());
         metadata.setFileSize(file.getSize());
@@ -221,11 +235,13 @@ public class FileUploadService {
             
             // Create a replication request object
             Map<String, Object> replicationRequest = new HashMap<>();
-            replicationRequest.put("fileId", metadata.getFileName()); // <-- UUID filename as string
-replicationRequest.put("fileName", metadata.getOriginalFileName());
+            // Always send both the stored (UUID) file name and the original file name
+            replicationRequest.put("fileId", metadata.getFileName()); // UUID filename as string
+            replicationRequest.put("fileName", metadata.getFileName()); // Use UUID for fileName for replication
+            replicationRequest.put("originalFileName", metadata.getOriginalFileName()); // For traceability
             replicationRequest.put("deviceId", metadata.getDeviceId());
-            replicationRequest.put("sourceDeviceUrl", "http://localhost:8081");  // URL of this device
-            
+            replicationRequest.put("sourceDeviceUrl", "http://localhost:8081");  // URL of this device (should be configurable)
+
             // Convert to JSON
             String requestJson = objectMapper.writeValueAsString(replicationRequest);
             
