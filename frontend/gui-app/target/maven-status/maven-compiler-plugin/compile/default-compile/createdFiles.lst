@@ -26,5 +26,6 @@ com\mpjmp\gui\FileProgress.class
 com\mpjmp\gui\StatusBarController.class
 com\mpjmp\gui\api\AtlasUploadService.class
 com\mpjmp\gui\api\FileUploadService.class
+com\mpjmp\gui\util\BackendDeviceIdProvider.class
 com\mpjmp\gui\PendingFilesDashboardController.class
 com\mpjmp\gui\MetricsDashboardController.class

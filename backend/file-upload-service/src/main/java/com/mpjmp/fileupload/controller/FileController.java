@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLDecoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -106,14 +107,22 @@ public class FileController {
     public ResponseEntity<InputStreamResource> downloadFileByDevice(
             @PathVariable String deviceId,
             @PathVariable String fileName) throws IOException {
-        Path filePath = Paths.get(fileUploadService.getAbsoluteUploadDir()).resolve(deviceId).resolve(fileName);
+        // Log received path variables for debugging
+        log.info("[DOWNLOAD] deviceId received: {}", deviceId);
+        log.info("[DOWNLOAD] fileName received: {}", fileName);
+        // Defensive: decode fileName in case it's URL-encoded (spaces, special chars)
+        String decodedFileName = URLDecoder.decode(fileName, java.nio.charset.StandardCharsets.UTF_8);
+        log.info("[DOWNLOAD] Decoded fileName: {}", decodedFileName);
+        Path filePath = Paths.get(fileUploadService.getAbsoluteUploadDir()).resolve(deviceId).resolve(decodedFileName);
+        log.info("[DOWNLOAD] Resolved filePath: {}", filePath.toAbsolutePath());
         if (!Files.exists(filePath)) {
+            log.warn("[DOWNLOAD] File not found at path: {}", filePath.toAbsolutePath());
             return ResponseEntity.notFound().build();
         }
         InputStream inputStream = Files.newInputStream(filePath);
         InputStreamResource resource = new InputStreamResource(inputStream);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + decodedFileName)
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
     }

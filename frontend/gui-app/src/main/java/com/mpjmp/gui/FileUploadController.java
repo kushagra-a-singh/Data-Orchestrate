@@ -86,17 +86,17 @@ public class FileUploadController {
             });
         }
         if (darkModeToggle != null) {
-            darkModeToggle.setText("🌙  Dark Mode");
+            darkModeToggle.setText("  Dark Mode");
             darkModeToggle.setOnAction(e -> {
                 darkMode = !darkMode;
                 javafx.scene.Scene scene = darkModeToggle.getScene();
                 if (scene != null) {
                     if (darkMode) {
                         scene.getRoot().setStyle("-fx-background-color: linear-gradient(to bottom,#1a1a1a,#23272f);");
-                        darkModeToggle.setText("🌙  Dark Mode");
+                        darkModeToggle.setText("  Dark Mode");
                     } else {
                         scene.getRoot().setStyle("-fx-background-color: linear-gradient(to bottom,#e6eaff,#f7f8fa);");
-                        darkModeToggle.setText("☀️  Light Mode");
+                        darkModeToggle.setText("  Light Mode");
                     }
                 }
             });
@@ -132,12 +132,12 @@ public class FileUploadController {
         new Thread(() -> {
             try {
                 String uploadedBy = System.getProperty("USER_NAME", System.getProperty("user.name", "unknown"));
-                String deviceId = BackendDeviceIdProvider.getBackendDeviceId();
-                if (deviceId == null || deviceId.isEmpty()) {
-                    // fallback to legacy DeviceIdentifier if backend not available
-                    deviceId = DeviceIdentifier.getDeviceId();
+                String tempDeviceId = BackendDeviceIdProvider.getBackendDeviceId();
+                if (tempDeviceId == null || tempDeviceId.isEmpty()) {
+                    tempDeviceId = DeviceIdentifier.getDeviceId();
                 }
-                String deviceName = DeviceIdentifier.getDeviceName();
+                final String deviceId = tempDeviceId;
+                final String deviceName = DeviceIdentifier.getDeviceName();
                 // Debug print to verify deviceId and deviceName
                 System.out.println("[DEBUG] Using deviceId for upload/replication: " + deviceId);
                 System.out.println("[DEBUG] Using deviceName: " + deviceName);

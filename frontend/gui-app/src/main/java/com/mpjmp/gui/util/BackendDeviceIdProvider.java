@@ -8,7 +8,7 @@ import org.json.JSONObject;
 
 public class BackendDeviceIdProvider {
     private static String backendDeviceId = null;
-    private static final String DEVICE_ID_URL = "http://localhost:8080/api/files/device/id";
+    private static final String DEVICE_ID_URL = "http://localhost:8081/api/files/device/id";
 
     public static String getBackendDeviceId() {
         if (backendDeviceId != null) return backendDeviceId;
