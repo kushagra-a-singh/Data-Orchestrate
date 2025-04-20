@@ -7,5 +7,6 @@ public class ReplicationRequest {
     private String fileId;
     private String fileName;
     private String sourceDeviceUrl;
+    private String deviceId;
     // Add more fields as needed (e.g., sourceDeviceId)
 }

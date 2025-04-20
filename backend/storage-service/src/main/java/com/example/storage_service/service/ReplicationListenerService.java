@@ -45,8 +45,9 @@ public class ReplicationListenerService {
             }
 
             log.info("Final sanitized sourceDeviceUrl: {}", sourceUrl);
-            // Use fileName for replication and download from filesystem endpoint
-            String downloadUrl = sourceUrl + "/api/files/download/" + request.getFileName();
+            // Use deviceId and fileName for replication and download from filesystem endpoint
+            String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "";
+            String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + request.getFileName();
             log.info("Attempting to download file from: {}", downloadUrl);
 
             org.springframework.http.ResponseEntity<byte[]> response = new org.springframework.web.client.RestTemplate().getForEntity(downloadUrl, byte[].class);

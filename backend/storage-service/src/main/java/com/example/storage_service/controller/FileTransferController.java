@@ -33,4 +33,19 @@ public class FileTransferController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
     }
+
+    // Download file by deviceId and fileName from local filesystem
+    @GetMapping("/download/{deviceId}/{fileName}")
+    public ResponseEntity<InputStreamResource> downloadFileByDevice(@PathVariable String deviceId, @PathVariable String fileName) throws IOException {
+        Path filePath = Paths.get("./data/uploads").resolve(deviceId).resolve(fileName);
+        if (!Files.exists(filePath)) {
+            return ResponseEntity.notFound().build();
+        }
+        InputStream inputStream = Files.newInputStream(filePath);
+        InputStreamResource resource = new InputStreamResource(inputStream);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
+    }
 }
