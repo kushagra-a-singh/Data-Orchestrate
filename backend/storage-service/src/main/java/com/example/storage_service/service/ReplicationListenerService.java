@@ -45,17 +45,19 @@ public class ReplicationListenerService {
             }
 
             log.info("Final sanitized sourceDeviceUrl: {}", sourceUrl);
+            log.info("[REPLICATION-LISTENER] Incoming ReplicationRequest: fileId={}, fileName={}, deviceId={}, sourceDeviceUrl={}", request.getFileId(), request.getFileName(), request.getDeviceId(), request.getSourceDeviceUrl());
             // Use deviceId and fileName for replication and download from filesystem endpoint
             String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "";
             // Use UUID fileName for download (fileName in request is UUID, not original)
             String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + request.getFileName();
-            log.info("Attempting to download file from: {}", downloadUrl);
+            log.info("[REPLICATION-LISTENER] Attempting to download file from: {}", downloadUrl);
 
             org.springframework.http.ResponseEntity<byte[]> response = new org.springframework.web.client.RestTemplate().getForEntity(downloadUrl, byte[].class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 java.nio.file.Path replicatedDir = java.nio.file.Paths.get("./data/replicated");
                 java.nio.file.Files.createDirectories(replicatedDir);
                 java.nio.file.Path targetPath = replicatedDir.resolve(request.getFileName());
+                log.info("[REPLICATION-LISTENER] Saving replicated file to: {}", targetPath.toAbsolutePath());
                 java.nio.file.Files.write(targetPath, response.getBody());
                 log.info("File {} replicated and saved to {}", request.getFileName(), targetPath.toAbsolutePath());
                 return ResponseEntity.ok("File replicated and saved to: " + targetPath.toAbsolutePath());
