@@ -2,6 +2,7 @@ package com.mpjmp.fileupload.controller;
 
 import com.mpjmp.fileupload.model.FileMetadata;
 import com.mpjmp.fileupload.service.FileUploadService;
+import com.dataorchestrate.common.DeviceIdentifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -115,6 +116,15 @@ public class FileController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
+    }
+
+    @GetMapping("/device/id")
+    public ResponseEntity<Map<String, String>> getDeviceId() {
+        DeviceIdentifier deviceIdentifier = new DeviceIdentifier();
+        String realDeviceId = deviceIdentifier.getDeviceId();
+        Map<String, String> resp = new java.util.HashMap<>();
+        resp.put("deviceId", realDeviceId);
+        return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/list")

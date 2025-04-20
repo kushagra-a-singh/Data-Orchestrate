@@ -16,6 +16,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Scanner;
 import com.mpjmp.gui.util.DeviceIdentifier;
+import com.mpjmp.gui.util.BackendDeviceIdProvider;
 
 public class PendingFilesDashboardController {
     @FXML private TableView<PendingFileRow> pendingTable;
@@ -87,7 +88,9 @@ public class PendingFilesDashboardController {
      * For demo, prompts via a dialog if not set.
      */
     private String getDeviceIdFromContextOrPrompt() {
-        String id = DeviceIdentifier.getDeviceId();
+        String id = BackendDeviceIdProvider.getBackendDeviceId();
+        if (id != null && !id.isEmpty() && !"UNKNOWN".equals(id)) return id;
+        id = DeviceIdentifier.getDeviceId();
         if (id != null && !id.isEmpty() && !"UNKNOWN".equals(id)) return id;
         // Optionally fallback to prompt
         TextInputDialog dialog = new TextInputDialog();

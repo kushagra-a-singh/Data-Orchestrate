@@ -9,6 +9,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.URI;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mpjmp.gui.util.BackendDeviceIdProvider;
+import com.mpjmp.gui.util.DeviceIdentifier;
 
 public class SyncRulesController {
     @FXML private TableView<SyncRule> rulesTable;
@@ -44,7 +46,10 @@ public class SyncRulesController {
     }
     
     private String getDeviceId() {
-        // TODO: Implement device ID retrieval logic
+        String id = BackendDeviceIdProvider.getBackendDeviceId();
+        if (id != null && !id.isEmpty() && !"UNKNOWN".equals(id)) return id;
+        id = DeviceIdentifier.getDeviceId();
+        if (id != null && !id.isEmpty() && !"UNKNOWN".equals(id)) return id;
         return "demo-device-id";
     }
     

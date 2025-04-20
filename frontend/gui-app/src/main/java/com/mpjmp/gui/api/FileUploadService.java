@@ -69,6 +69,9 @@ public class FileUploadService {
             replicationRequest.put("fileId", fileId);
             replicationRequest.put("fileName", fileName);
             replicationRequest.put("deviceId", deviceId);
+            // Always send the ACTUAL deviceId used for upload as part of the URL for download
+            // sourceDeviceUrl should NOT include /api/files/download, just the base URL
+            // The backend expects to construct: <sourceDeviceUrl>/api/files/download/<deviceId>/<fileName>
             replicationRequest.put("sourceDeviceUrl", sourceDeviceUrl);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(REPLICATE_URL))

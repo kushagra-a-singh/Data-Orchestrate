@@ -23,6 +23,8 @@ import java.util.List;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import org.json.JSONObject;
+import com.mpjmp.gui.util.DeviceIdentifier;
+import com.mpjmp.gui.util.BackendDeviceIdProvider;
 
 public class FileUploadController {
     @FXML private ProgressBar progressBar;
@@ -129,19 +131,26 @@ public class FileUploadController {
         progressBar.setProgress(-1);
         new Thread(() -> {
             try {
-                // You can replace these with actual user/device info retrieval if available
-                String uploadedBy = System.getProperty("USER_NAME", "testuser");
-                String deviceId = System.getProperty("DEVICE_ID", "DEVICE-Test-123");
-
+                String uploadedBy = System.getProperty("USER_NAME", System.getProperty("user.name", "unknown"));
+                String deviceId = BackendDeviceIdProvider.getBackendDeviceId();
+                if (deviceId == null || deviceId.isEmpty()) {
+                    // fallback to legacy DeviceIdentifier if backend not available
+                    deviceId = DeviceIdentifier.getDeviceId();
+                }
+                String deviceName = DeviceIdentifier.getDeviceName();
+                // Debug print to verify deviceId and deviceName
+                System.out.println("[DEBUG] Using deviceId for upload/replication: " + deviceId);
+                System.out.println("[DEBUG] Using deviceName: " + deviceName);
+                Platform.runLater(() -> {
+                    updateStatus("Device ID: " + deviceId + ", Device Name: " + deviceName, Color.DARKBLUE);
+                });
                 String uploadResponse = FileUploadService.uploadFile(selectedFile, uploadedBy, deviceId);
-                // Try to extract fileId from response (assume JSON)
                 String fileId = extractFileId(uploadResponse);
-                // Replicate file after upload (update URLs as needed)
                 String replicateResponse = FileUploadService.replicateFile(
                     fileId,
                     selectedFile.getName(),
                     deviceId,
-                    "http://localhost:8081" // Or dynamically set orchestrator URL
+                    "http://localhost:8081"
                 );
                 Platform.runLater(() -> {
                     updateStatus("Upload & replication successful! File ID: " + fileId, Color.GREEN);
