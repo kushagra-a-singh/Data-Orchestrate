@@ -1,3 +1,5 @@
+package com.mpjmp.common.metrics;
+
 import org.springframework.stereotype.Component;
 import org.springframework.scheduling.annotation.Scheduled;
 import io.micrometer.core.instrument.MeterRegistry;

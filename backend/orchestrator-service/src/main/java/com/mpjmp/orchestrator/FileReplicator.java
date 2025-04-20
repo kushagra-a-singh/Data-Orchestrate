@@ -120,6 +120,6 @@ public class FileReplicator {
 
     // Helper to get this device's base URL (auto-detects IP and port)
     private String getLocalDeviceUrl() {
-        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("port");
+        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("file_upload_port");
     }
 }

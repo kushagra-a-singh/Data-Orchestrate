@@ -25,7 +25,7 @@ public class NotificationWebSocketClient extends WebSocketClient {
             String selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
             Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
             if (self != null) {
-                return "ws://" + self.get("ip") + ":" + self.get("port") + "/ws/websocket";
+                return "ws://" + self.get("ip") + ":" + self.get("notification_port") + "/ws";
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to load device config for WebSocket", e);

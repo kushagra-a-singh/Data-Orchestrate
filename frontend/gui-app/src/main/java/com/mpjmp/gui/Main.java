@@ -8,6 +8,7 @@ import javafx.stage.Stage;
 import io.github.cdimascio.dotenv.Dotenv;
 import com.mpjmp.gui.utils.NotificationWebSocketClient;
 import com.mpjmp.gui.utils.NotificationUtil;
+import java.nio.file.*;
 
 public class Main extends Application {
 
@@ -38,21 +39,24 @@ public class Main extends Application {
         primaryStage.show();
     }
 
-    private static String getBasePath() {
-        String envPath = System.getenv("MPJMP_BASE_PATH");
-        if (envPath == null || envPath.isEmpty()) {
-            envPath = System.getProperty("MPJMP_BASE_PATH", System.getProperty("user.dir"));
+    private static String findEnvDirectory() {
+        Path dir = Paths.get(System.getProperty("user.dir"));
+        while (dir != null) {
+            if (Files.exists(dir.resolve(".env"))) {
+                return dir.toString();
+            }
+            dir = dir.getParent();
         }
-        return envPath;
+        // Fallback: use current working directory if not found
+        return System.getProperty("user.dir");
     }
 
     public static void main(String[] args) {
-        // Use relative path for .env file location
-        String envPath = getBasePath();
-        System.out.println("[DEBUG] Dotenv will search for .env in: " + envPath);
+        // Use directory search for .env file location
+        String envDir = findEnvDirectory();
+        System.out.println("[DEBUG] Dotenv will search for .env in: " + envDir);
         Dotenv dotenv = Dotenv.configure()
-            .directory(envPath)
-            .ignoreIfMissing()
+            .directory(envDir)
             .load();
         
         // Print MongoDB connection info

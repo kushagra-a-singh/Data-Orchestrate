@@ -96,7 +96,7 @@ public class PendingFilesDashboardController {
             List<Map<String, String>> allDevices = mapper.readValue(is, new TypeReference<List<Map<String, String>>>() {});
             Map<String, String> peer = allDevices.stream().filter(d -> d.get("name").equals(deviceId)).findFirst().orElse(null);
             if (peer != null) {
-                return "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/replication-status/device/" + deviceId + "/pending";
+                return "http://" + peer.get("ip") + ":" + peer.get("storage_port") + "/api/replication-status/device/" + deviceId + "/pending";
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to load device config", e);

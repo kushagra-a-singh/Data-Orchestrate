@@ -34,15 +34,14 @@ public class FileUploadService {
             selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
             Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
             if (self != null) {
-                uploadUrl = "http://" + self.get("ip") + ":" + self.get("port") + "/api/files/upload";
-                replicateUrl = "http://" + self.get("ip") + ":" + self.get("port") + "/api/files/replicate";
+                uploadUrl = "http://" + self.get("ip") + ":" + self.get("file_upload_port") + "/api/files/upload";
+                replicateUrl = "http://" + self.get("ip") + ":" + self.get("file_upload_port") + "/api/files/replicate";
             } else {
                 uploadUrl = null;
                 replicateUrl = null;
             }
         } catch (Exception e) {
-            uploadUrl = null;
-            replicateUrl = null;
+            throw new RuntimeException("Failed to load device config", e);
         }
     }
 

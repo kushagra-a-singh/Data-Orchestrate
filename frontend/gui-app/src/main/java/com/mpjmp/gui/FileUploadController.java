@@ -226,7 +226,7 @@ public class FileUploadController {
             String selfDeviceName = System.getProperty("DEVICE_NAME", System.getenv("DEVICE_NAME"));
             Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
             if (self != null) {
-                return "http://" + self.get("ip") + ":" + self.get("port");
+                return "http://" + self.get("ip") + ":" + self.get("file_upload_port");
             } else {
                 throw new RuntimeException("Self device not found in device config");
             }

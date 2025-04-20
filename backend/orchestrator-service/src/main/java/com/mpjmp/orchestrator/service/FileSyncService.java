@@ -207,7 +207,7 @@ public class FileSyncService {
         // Download file from source device
         Map<String, String> peer = peerDevices.stream().filter(d -> d.get("name").equals(sourceDeviceId)).findFirst().orElse(null);
         if (peer != null) {
-            String downloadUrl = "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/files/" + fileId + "/download";
+            String downloadUrl = "http://" + peer.get("ip") + ":" + peer.get("storage_port") + "/api/files/" + fileId + "/download";
             byte[] fileContent = restTemplate.getForObject(downloadUrl, byte[].class);
 
             // Save file
@@ -351,7 +351,7 @@ public class FileSyncService {
             Map<String, String> peer = peerDevices.stream().filter(d -> d.get("name").equals(deviceId)).findFirst().orElse(null);
             if (peer != null) {
                 // Send verification request
-                String verifyUrl = "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/files/" + fileId + "/verify";
+                String verifyUrl = "http://" + peer.get("ip") + ":" + peer.get("storage_port") + "/api/files/" + fileId + "/verify";
                 Boolean verified = restTemplate.getForObject(verifyUrl, Boolean.class);
                 
                 if (Boolean.TRUE.equals(verified)) {

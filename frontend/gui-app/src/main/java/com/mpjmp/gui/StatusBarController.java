@@ -63,7 +63,7 @@ public class StatusBarController {
             String selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
             Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
             if (self != null) {
-                return "http://" + self.get("ip") + ":" + self.get("port") + "/health";
+                return "http://" + self.get("ip") + ":" + self.get("notification_port") + "/health";
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to load device config", e);

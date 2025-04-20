@@ -1,5 +1,26 @@
 [
-  {"name": "Kushagra", "ip": "192.168.1.4", "port": "8081"},
-  {"name": "Brandon", "ip": "192.168.1.5", "port": "8085"},
-  {"name": "Third", "ip": "192.168.1.6", "port": "8089"}
+  {
+    "name": "Kushagra",
+    "ip": "192.168.1.4",
+    "file_upload_port": "8081",
+    "processing_port": "8083",
+    "notification_port": "8084",
+    "storage_port": "8085"
+  },
+  {
+    "name": "Anil Cerejo",
+    "ip": "192.168.1.5",
+    "file_upload_port": "8081",
+    "processing_port": "8083",
+    "notification_port": "8084",
+    "storage_port": "8085"
+  },
+  {
+    "name": "Third",
+    "ip": "192.168.1.6",
+    "file_upload_port": "8081",
+    "processing_port": "8083",
+    "notification_port": "8084",
+    "storage_port": "8085"
+  }
 ]

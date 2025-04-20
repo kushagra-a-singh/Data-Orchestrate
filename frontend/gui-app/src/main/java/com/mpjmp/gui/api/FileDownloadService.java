@@ -26,13 +26,10 @@ public class FileDownloadService {
             selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
             Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
             if (self != null) {
-                downloadUrlPrefix = "http://" + self.get("ip") + ":" + self.get("port") + "/api/files/download/";
-            } else {
-                downloadUrlPrefix = null;
+                downloadUrlPrefix = "http://" + self.get("ip") + ":" + self.get("storage_port") + "/api/files/";
             }
         } catch (Exception e) {
-            selfDeviceName = "UNKNOWN";
-            downloadUrlPrefix = null;
+            throw new RuntimeException("Failed to load device config", e);
         }
     }
 
@@ -42,7 +39,7 @@ public class FileDownloadService {
         try {
             HttpResponse<byte[]> response = httpClient.send(
                 HttpRequest.newBuilder()
-                    .uri(URI.create(downloadUrlPrefix + fileId))
+                    .uri(URI.create(downloadUrlPrefix + "download/" + fileId))
                     .GET()
                     .build(),
                 HttpResponse.BodyHandlers.ofByteArray()

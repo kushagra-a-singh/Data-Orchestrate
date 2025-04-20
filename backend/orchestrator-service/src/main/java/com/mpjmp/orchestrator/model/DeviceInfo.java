@@ -31,7 +31,7 @@ public class DeviceInfo {
     public String getSyncUrl() {
         Map<String, String> device = DeviceConfigUtil.getDeviceByName(deviceName);
         if (device != null) {
-            return "http://" + device.get("ip") + ":" + device.get("port") + "/sync";
+            return "http://" + device.get("ip") + ":" + device.get("storage_port") + "/sync";
         }
         return null;
     }
@@ -55,7 +55,7 @@ public class DeviceInfo {
     public String getHealthCheckUrl() {
         Map<String, String> device = DeviceConfigUtil.getDeviceByName(deviceName);
         if (device != null) {
-            return "http://" + device.get("ip") + ":" + device.get("port") + "/api/health";
+            return "http://" + device.get("ip") + ":" + device.get("notification_port") + "/api/health";
         }
         return null;
     }
