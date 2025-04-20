@@ -49,17 +49,14 @@ public class FileReplicator {
         try {
             String fileKey = filePath.toAbsolutePath().toString();
             if (replicatedFiles.contains(fileKey)) return;
-            String fileName = filePath.getFileName().toString(); // This is the UUID (stored) file name
+            String fileName = filePath.getFileName().toString(); // UUID file name (e.g., efdbd8a9-26a5-4630-8820-d950c533b25b.pdf)
             String deviceId = filePath.getParent().getFileName().toString();
 
-            // Set up ReplicationRequest payload
+            // Set up ReplicationRequest payload (ONLY UUID file name is sent)
             Map<String, Object> payload = new HashMap<>();
-            payload.put("fileId", fileName); // Use UUID file name for fileId
-            payload.put("fileName", fileName); // Use UUID file name for fileName
+            payload.put("fileName", fileName); // Only UUID file name
             payload.put("deviceId", deviceId);
-            payload.put("sourceDeviceUrl", getLocalDeviceUrl()); // Helper method to get local device base URL
-            // Optionally, include original file name for logging/display (not for download endpoint)
-            // payload.put("originalFileName", ...); // If needed for display
+            payload.put("sourceDeviceUrl", getLocalDeviceUrl());
 
             log.info("[REPLICATION] Payload for {}: {}", fileName, payload);
             log.info("[REPLICATION] Replicating file from path: {} (deviceId: {})", filePath, deviceId);
