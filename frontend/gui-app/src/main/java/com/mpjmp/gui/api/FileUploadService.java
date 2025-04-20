@@ -7,6 +7,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.charset.StandardCharsets;
 import java.net.ConnectException;
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -14,62 +17,68 @@ import java.util.Base64;
 
 public class FileUploadService {
     private static final String UPLOAD_URL = "http://localhost:8081/api/files/upload";
+    private static final String REPLICATE_URL = "http://localhost:8085/replicate-file";
 
-    public static String uploadFile(File file, String orchestratorUrl, String deviceListEndpoint) {
+    public static String uploadFile(File file, String uploadedBy, String deviceId) {
         try {
-            JSONObject payload = new JSONObject();
-            payload.put("fileName", file.getName());
-            payload.put("fileData", Base64.getEncoder().encodeToString(Files.readAllBytes(file.toPath())));
-            
-            HttpResponse<String> response = HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder()
-                    .uri(URI.create(UPLOAD_URL))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(payload.toString()))
-                    .build(),
-                HttpResponse.BodyHandlers.ofString()
-            );
-            
-            // After upload, trigger replication to all devices
-            String fileId = extractFileId(response.body());
-            JSONArray devices = fetchDeviceList(deviceListEndpoint);
-            for (int i = 0; i < devices.length(); i++) {
-                JSONObject device = devices.getJSONObject(i);
-                String deviceUrl = device.getString("url");
-                JSONObject replicationRequest = new JSONObject();
-                replicationRequest.put("fileId", fileId);
-                replicationRequest.put("fileName", file.getName());
-                replicationRequest.put("sourceDeviceUrl", orchestratorUrl);
-                HttpClient.newHttpClient().send(
-                    HttpRequest.newBuilder()
-                        .uri(URI.create(deviceUrl + "/replicate"))
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(replicationRequest.toString()))
-                        .build(),
-                    HttpResponse.BodyHandlers.ofString()
-                );
+            String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+            var byteArrays = new java.util.ArrayList<byte[]>();
+            // File part
+            String filePartHeader = "--" + boundary + "\r\n" +
+                    "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"\r\n" +
+                    "Content-Type: application/pdf\r\n\r\n";
+            byteArrays.add(filePartHeader.getBytes(StandardCharsets.UTF_8));
+            byteArrays.add(Files.readAllBytes(file.toPath()));
+            byteArrays.add("\r\n".getBytes(StandardCharsets.UTF_8));
+            // uploadedBy part
+            String uploadedByPart = "--" + boundary + "\r\n" +
+                    "Content-Disposition: form-data; name=\"uploadedBy\"\r\n\r\n" +
+                    uploadedBy + "\r\n";
+            byteArrays.add(uploadedByPart.getBytes(StandardCharsets.UTF_8));
+            // deviceId part
+            String deviceIdPart = "--" + boundary + "\r\n" +
+                    "Content-Disposition: form-data; name=\"deviceId\"\r\n\r\n" +
+                    deviceId + "\r\n";
+            byteArrays.add(deviceIdPart.getBytes(StandardCharsets.UTF_8));
+            // End boundary
+            String endBoundary = "--" + boundary + "--\r\n";
+            byteArrays.add(endBoundary.getBytes(StandardCharsets.UTF_8));
+            // Combine all parts
+            int totalLength = byteArrays.stream().mapToInt(b -> b.length).sum();
+            byte[] multipartBody = new byte[totalLength];
+            int pos = 0;
+            for (byte[] b : byteArrays) {
+                System.arraycopy(b, 0, multipartBody, pos, b.length);
+                pos += b.length;
             }
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(UPLOAD_URL))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
+                    .build();
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
             return response.body();
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
     }
 
-    // Helper to extract fileId from upload response
-    private static String extractFileId(String responseBody) {
-        // Implement extraction logic based on backend response structure
-        return responseBody; // Placeholder
-    }
-
-    // Helper to fetch device list
-    private static JSONArray fetchDeviceList(String deviceListEndpoint) throws IOException, InterruptedException {
-        HttpResponse<String> response = HttpClient.newHttpClient().send(
-            HttpRequest.newBuilder()
-                .uri(URI.create(deviceListEndpoint))
-                .GET()
-                .build(),
-            HttpResponse.BodyHandlers.ofString()
-        );
-        return new JSONArray(response.body());
+    public static String replicateFile(String fileId, String fileName, String deviceId, String sourceDeviceUrl) {
+        try {
+            JSONObject replicationRequest = new JSONObject();
+            replicationRequest.put("fileId", fileId);
+            replicationRequest.put("fileName", fileName);
+            replicationRequest.put("deviceId", deviceId);
+            replicationRequest.put("sourceDeviceUrl", sourceDeviceUrl);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(REPLICATE_URL))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(replicationRequest.toString()))
+                    .build();
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            return response.body();
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
     }
 }

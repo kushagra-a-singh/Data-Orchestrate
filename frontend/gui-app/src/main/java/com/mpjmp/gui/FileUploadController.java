@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import org.json.JSONObject;
 
 public class FileUploadController {
     @FXML private ProgressBar progressBar;
@@ -128,34 +129,44 @@ public class FileUploadController {
         progressBar.setProgress(-1);
         new Thread(() -> {
             try {
-                // Try to get MongoDB URI from System properties first (set by Main.java)
-                String uri = System.getProperty("MONGODB_URI");
-                
-                // Fallback to environment variable if not found in properties
-                if (uri == null || uri.isEmpty()) {
-                    uri = System.getenv("MONGODB_URI");
-                }
-                
-                // If still not found, throw an error
-                if (uri == null || uri.isEmpty()) {
-                    throw new RuntimeException("MONGODB_URI environment variable is not set.");
-                }
-                
-                MongoClient mongoClient = MongoClients.create(uri);
-                AtlasUploadService service = new AtlasUploadService(mongoClient);
-                String fileId = service.uploadDirectToAtlas(selectedFile);
+                // You can replace these with actual user/device info retrieval if available
+                String uploadedBy = System.getProperty("USER_NAME", "testuser");
+                String deviceId = System.getProperty("DEVICE_ID", "DEVICE-Test-123");
+
+                String uploadResponse = FileUploadService.uploadFile(selectedFile, uploadedBy, deviceId);
+                // Try to extract fileId from response (assume JSON)
+                String fileId = extractFileId(uploadResponse);
+                // Replicate file after upload (update URLs as needed)
+                String replicateResponse = FileUploadService.replicateFile(
+                    fileId,
+                    selectedFile.getName(),
+                    deviceId,
+                    "http://localhost:8081" // Or dynamically set orchestrator URL
+                );
                 Platform.runLater(() -> {
-                    updateStatus("Upload successful! ID: " + fileId, Color.GREEN);
+                    updateStatus("Upload & replication successful! File ID: " + fileId, Color.GREEN);
                     progressBar.setProgress(1);
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    showErrorDialog("Upload failed", e.getMessage());
-                    updateStatus("Upload failed: " + e.getMessage(), Color.RED);
+                    showErrorDialog("Upload/Replication failed", e.getMessage());
+                    updateStatus("Failed: " + e.getMessage(), Color.RED);
                     uploadButton.setDisable(false);
                 });
             }
         }).start();
+    }
+
+    // Helper to extract fileId from upload response JSON
+    private String extractFileId(String response) {
+        try {
+            org.json.JSONObject obj = new org.json.JSONObject(response);
+            if (obj.has("id")) return obj.getString("id");
+            if (obj.has("fileId")) return obj.getString("fileId");
+            return response;
+        } catch (Exception e) {
+            return response;
+        }
     }
 
     @FXML
