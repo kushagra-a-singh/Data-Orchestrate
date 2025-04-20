@@ -1,3 +1,9 @@
 uploads/*
 .env
 logs
+
+backend/file-upload-service/data/
+backend/orchestrator-service/data/
+backend/storage-service/data/
+backend/processing-service/data/
+backend/notification-service/data/
