@@ -279,8 +279,16 @@ public class FileUploadService {
     }
 
     private List<String> getPeerDeviceUrls() {
-        return peerDevices.stream()
-            .map(d -> "http://" + d.get("ip") + ":" + d.get("port"))
-            .collect(Collectors.toList());
+        List<String> urls = new ArrayList<>();
+        for (Map<String, String> d : peerDevices) {
+            String ip = d.get("ip");
+            String port = d.get("port");
+            if (ip == null || port == null) {
+                log.warn("Skipping peer device with missing ip or port: {}", d);
+                continue;
+            }
+            urls.add("http://" + ip + ":" + port);
+        }
+        return urls;
     }
 }
