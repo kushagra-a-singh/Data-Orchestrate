@@ -1,6 +1,7 @@
 package com.mpjmp.orchestrator.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mpjmp.common.model.FileMetadata;
 import com.mpjmp.orchestrator.model.DeviceInfo;
 import com.mpjmp.orchestrator.model.FileChangeEvent;
 import com.mpjmp.orchestrator.model.SyncDirection;
@@ -106,17 +107,15 @@ public class FileSyncService {
 
     public void replicateFileToDevices(String fileId) {
         try {
-            Document fileMetadata = mongoTemplate.getCollection("file_metadata")
-                .find(com.mongodb.client.model.Filters.eq("fileId", fileId))
-                .first();
-            if (fileMetadata == null) {
-                log.error("Metadata not found for file: {}", fileId);
+            // --- Fetch metadata from file-upload-service via HTTP, not MongoDB ---
+            String metadataUrl = String.format("http://localhost:8081/api/files/metadata/%s", fileId);
+            ResponseEntity<FileMetadata> response = restTemplate.getForEntity(metadataUrl, FileMetadata.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.error("Metadata not found for file: {} via file-upload-service API", fileId);
                 return;
             }
-            
-            // --- ENSURE: Always use UUID file name for replication ---
-            String uuidFileName = fileMetadata.getString("uuidFileName") != null ? fileMetadata.getString("uuidFileName") : fileMetadata.getString("fileName");
-            // If uuidFileName is null, log error and skip
+            FileMetadata fileMetadata = response.getBody();
+            String uuidFileName = fileMetadata.getFileName();
             if (uuidFileName == null) {
                 log.error("Could not determine UUID file name for fileId: {}. fileMetadata: {}", fileId, fileMetadata);
                 return;

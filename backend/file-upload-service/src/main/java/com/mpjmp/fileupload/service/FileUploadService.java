@@ -2,7 +2,7 @@ package com.mpjmp.fileupload.service;
 
 import com.dataorchestrate.common.DeviceIdentifier;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mpjmp.fileupload.model.FileMetadata;
+import com.mpjmp.common.model.FileMetadata;
 import com.mpjmp.fileupload.repository.FileMetadataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,7 +75,7 @@ public class FileUploadService {
         metadata.setFileName(fileName);
         metadata.setOriginalFileName(originalFilename);
         metadata.setContentType(file.getContentType());
-        metadata.setSize(file.getSize());
+        metadata.setFileSize(file.getSize());
         metadata.setStatus("UPLOADED");
         metadata.setUploadedBy(uploadedBy);
         metadata.setDeviceName(dynamicDeviceName);

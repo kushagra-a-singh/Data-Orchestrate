@@ -1,6 +1,6 @@
 package com.mpjmp.fileupload.controller;
 
-import com.mpjmp.fileupload.model.FileMetadata;
+import com.mpjmp.common.model.FileMetadata;
 import com.mpjmp.fileupload.service.FileUploadService;
 import com.dataorchestrate.common.DeviceIdentifier;
 import lombok.RequiredArgsConstructor;
@@ -148,6 +148,16 @@ public class FileController {
     public ResponseEntity<Void> deleteFile(@PathVariable String fileId) {
         boolean deleted = fileUploadService.deleteFile(fileId);
         return deleted ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+    }
+
+    // --- API endpoint to fetch metadata for a fileId (for orchestrator replication logic) ---
+    @GetMapping("/metadata/{fileId}")
+    public ResponseEntity<FileMetadata> getFileMetadataById(@PathVariable String fileId) {
+        FileMetadata metadata = fileUploadService.getFileMetadata(fileId);
+        if (metadata == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(metadata);
     }
 
     private String getDeviceIp() {
