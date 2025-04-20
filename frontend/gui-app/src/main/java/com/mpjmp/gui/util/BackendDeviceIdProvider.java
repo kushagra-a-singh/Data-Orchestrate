@@ -1,19 +1,45 @@
 package com.mpjmp.gui.util;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
+import java.util.Map;
+
+import com.dataorchestrate.common.DeviceConfigUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.json.JSONObject;
 
 public class BackendDeviceIdProvider {
     private static String backendDeviceId = null;
-    private static final String DEVICE_ID_URL = "http://localhost:8081/api/files/device/id";
+    private static List<Map<String, String>> allDevices;
+    private static String selfDeviceName;
+    private static String deviceIdUrl;
+
+    static {
+        try {
+            allDevices = DeviceConfigUtil.getAllDevices();
+            selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
+            if (self != null) {
+                deviceIdUrl = "http://" + self.get("ip") + ":" + self.get("port") + "/api/files/device/id";
+            } else {
+                deviceIdUrl = null;
+            }
+        } catch (Exception e) {
+            selfDeviceName = "UNKNOWN";
+            deviceIdUrl = null;
+        }
+    }
 
     public static String getBackendDeviceId() {
         if (backendDeviceId != null) return backendDeviceId;
         try {
-            URL url = new URL(DEVICE_ID_URL);
+            URL url = new URL(deviceIdUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(2000);

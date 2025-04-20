@@ -1,8 +1,11 @@
 package com.mpjmp.orchestrator.model;
 
+import com.dataorchestrate.common.DeviceConfigUtil;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.Map;
 
 @Data
 @Document(collection = "devices")
@@ -26,7 +29,11 @@ public class DeviceInfo {
     }
 
     public String getSyncUrl() {
-        return "http://" + deviceName + "/sync";
+        Map<String, String> device = DeviceConfigUtil.getDeviceByName(deviceName);
+        if (device != null) {
+            return "http://" + device.get("ip") + ":" + device.get("port") + "/sync";
+        }
+        return null;
     }
 
     public boolean isOffline() {
@@ -46,6 +53,10 @@ public class DeviceInfo {
     }
 
     public String getHealthCheckUrl() {
-        return "http://" + deviceName + ":8081/api/health";
+        Map<String, String> device = DeviceConfigUtil.getDeviceByName(deviceName);
+        if (device != null) {
+            return "http://" + device.get("ip") + ":" + device.get("port") + "/api/health";
+        }
+        return null;
     }
 }

@@ -1,6 +1,7 @@
 package com.dataorchestrate.processing;
 
 import com.dataorchestrate.common.DeviceIdentifier;
+import com.dataorchestrate.common.NotificationSender;
 import com.dataorchestrate.processing.model.FileMetadata;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -77,6 +78,9 @@ public class ProcessingService {
         metadata.setUploadedBy(uploadedBy);
         metadata.setUploadTime(LocalDateTime.now());
         metadata.setStoragePath(filePath.toString());
+        NotificationSender.sendNotification(
+            "info", "Processing Started", "Processing file: " + fileName, 0.0, fileId, deviceId, filePath.toString()
+        );
         try {
             if (fileType.equals("application/pdf")) {
                 processPdf(file, metadata);
@@ -89,6 +93,9 @@ public class ProcessingService {
             } else {
                 compressAndStore(file, metadata);
             }
+            NotificationSender.sendNotification(
+                "success", "Processing Complete", "File processed and saved: " + filePath.toString(), 1.0, fileId, deviceId, filePath.toString()
+            );
             metadata.setStatus("PROCESSED");
             try {
                 kafkaTemplate.send("file.processed", objectMapper.writeValueAsString(metadata));
@@ -96,6 +103,10 @@ public class ProcessingService {
                 logger.error("Failed to serialize metadata for processed file event", e);
             }
         } catch (Exception e) {
+            logger.error("Error processing file {}: {}", fileName, e.getMessage());
+            NotificationSender.sendNotification(
+                "error", "Processing Failed", "Failed to process file: " + fileName + ". Error: " + e.getMessage(), null, fileId, deviceId, filePath.toString()
+            );
             metadata.setStatus("FAILED");
             mongoTemplate.save(metadata);
             try {
@@ -103,6 +114,7 @@ public class ProcessingService {
             } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
                 logger.error("Failed to serialize metadata for failed file event", ex);
             }
+            throw new IOException(e);
         }
     }
     

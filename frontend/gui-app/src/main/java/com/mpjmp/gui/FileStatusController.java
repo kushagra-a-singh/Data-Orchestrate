@@ -19,6 +19,10 @@ import java.net.HttpURLConnection;
 import java.util.Scanner;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
 
 public class FileStatusController {
     @FXML private ProgressBar syncProgress;
@@ -44,8 +48,8 @@ public class FileStatusController {
     private void updateProgress(String fileId, String deviceId) {
         final String fileIdFinal = fileId;
         try {
-            // Use backend endpoint for replication status
-            URL url = new URL("http://localhost:8085/api/replication-status/device/" + deviceId);
+            // Use device info from devices.json for replication status URL
+            URL url = new URL(getReplicationStatusUrl(deviceId));
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.connect();
@@ -71,6 +75,27 @@ public class FileStatusController {
         } catch (Exception e) {
             final String errorMsg = e.getMessage();
             Platform.runLater(() -> statusLabel.setText("Progress update failed: " + errorMsg));
+        }
+    }
+    
+    private String getReplicationStatusUrl(String deviceId) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream is = getClass().getClassLoader().getResourceAsStream("devices.json");
+            List<Map<String, String>> allDevices = mapper.readValue(is, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, String>>>() {});
+            String selfDeviceName = System.getProperty("DEVICE_NAME", System.getenv("DEVICE_NAME"));
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
+            Map<String, String> peer = allDevices.stream().filter(d -> d.get("name").equals(deviceId)).findFirst().orElse(null);
+            if (peer != null) {
+                return "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/replication-status/device/" + deviceId;
+            }
+            if (self != null) {
+                return "http://" + self.get("ip") + ":" + self.get("port") + "/api/replication-status/device/" + deviceId;
+            } else {
+                throw new RuntimeException("Self device not found in device config");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load device config", e);
         }
     }
     

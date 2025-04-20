@@ -1,9 +1,6 @@
 package com.mpjmp.gui.util;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.net.InetAddress;
-import java.util.Properties;
+import com.dataorchestrate.common.DeviceConfigUtil;
 
 public class DeviceIdentifier {
     private static String deviceId;
@@ -11,23 +8,9 @@ public class DeviceIdentifier {
 
     static {
         try {
-            // Load from config file if exists
-            Properties props = new Properties();
-            File config = new File(System.getProperty("user.home"), ".mpjmp-device.properties");
-            if (config.exists()) {
-                try (FileInputStream in = new FileInputStream(config)) {
-                    props.load(in);
-                    deviceId = props.getProperty("deviceId");
-                    deviceName = props.getProperty("deviceName");
-                }
-            }
-            // Fallback: Use hostname
-            if (deviceId == null || deviceId.isEmpty()) {
-                deviceId = InetAddress.getLocalHost().getHostName();
-            }
-            if (deviceName == null || deviceName.isEmpty()) {
-                deviceName = deviceId;
-            }
+            // Use backend DeviceConfigUtil for device info
+            deviceId = DeviceConfigUtil.getSelfDeviceName();
+            deviceName = deviceId;
         } catch (Exception e) {
             deviceId = "UNKNOWN";
             deviceName = "UNKNOWN";

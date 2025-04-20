@@ -1,6 +1,7 @@
 package com.dataorchestrate.fileupload;
 
 import com.dataorchestrate.common.DeviceIdentifier;
+import com.dataorchestrate.common.NotificationSender;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,11 @@ public class FileUploadService {
         String deviceId = deviceIdentifier.getDeviceId();
         String fileName = file.getOriginalFilename();
         String fileId = UUID.randomUUID().toString();
-        
+
+        NotificationSender.sendNotification(
+            "info", "Upload Started", "Uploading file: " + fileName, 0.0, fileId, deviceId, null
+        );
+
         logger.info("Uploading file {} from device {} by user {}", fileName, deviceId, uploadedBy);
         
         // Create device-specific directory
@@ -46,6 +51,9 @@ public class FileUploadService {
         file.transferTo(filePath.toFile());
         
         logger.info("File {} uploaded successfully to {}", fileName, filePath);
+        NotificationSender.sendNotification(
+            "success", "Upload Complete", "File uploaded successfully: " + fileName, 1.0, fileId, deviceId, filePath.toString()
+        );
         return fileId;
     }
     

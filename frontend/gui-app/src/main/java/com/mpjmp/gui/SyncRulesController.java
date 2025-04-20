@@ -8,9 +8,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mpjmp.gui.util.BackendDeviceIdProvider;
 import com.mpjmp.gui.util.DeviceIdentifier;
+import com.dataorchestrate.common.DeviceConfigUtil;
 
 public class SyncRulesController {
     @FXML private TableView<SyncRule> rulesTable;
@@ -30,16 +33,24 @@ public class SyncRulesController {
     
     private void loadRules() {
         try {
-            HttpResponse<String> response = httpClient.send(
-                HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:8082/api/sync-config/" + getDeviceId()))
-                    .GET()
-                    .build(),
-                HttpResponse.BodyHandlers.ofString()
-            );
-            
-            SyncRule[] rules = new ObjectMapper().readValue(response.body(), SyncRule[].class);
-            rulesTable.getItems().setAll(rules);
+            // Use devices.json for all device info
+            List<Map<String, String>> allDevices = DeviceConfigUtil.getAllDevices();
+            String selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
+            if (self != null) {
+                String url = "http://" + self.get("ip") + ":" + self.get("port") + "/api/sync-config/" + getDeviceId();
+                HttpResponse<String> response = httpClient.send(
+                    HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .GET()
+                        .build(),
+                    HttpResponse.BodyHandlers.ofString()
+                );
+                SyncRule[] rules = new ObjectMapper().readValue(response.body(), SyncRule[].class);
+                rulesTable.getItems().setAll(rules);
+            } else {
+                showError("Self device not found in config");
+            }
         } catch (Exception e) {
             showError("Failed to load rules: " + e.getMessage());
         }

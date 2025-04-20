@@ -4,6 +4,8 @@ import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import com.dataorchestrate.common.DeviceConfigUtil;
+import java.util.Map;
 
 @Data
 @Builder
@@ -18,8 +20,11 @@ public class DeviceInfo {
     private String storagePath;
 
     public String getSyncUrl() {
-        // Placeholder: Replace with actual logic to construct the sync URL
-        return "http://" + deviceName + "/sync";
+        Map<String, String> device = DeviceConfigUtil.getDeviceByName(deviceName);
+        if (device != null) {
+            return "http://" + device.get("ip") + ":" + device.get("port") + "/sync";
+        }
+        return null;
     }
 
     public boolean isOffline() {

@@ -1,8 +1,13 @@
 HealthController.class
 MetricsCollector.class
+com\mpjmp\common\sync\ConflictResolver.class
+com\dataorchestrate\common\DeviceConfigUtil$1.class
+com\dataorchestrate\common\DeviceConfigUtil.class
+com\dataorchestrate\common\DeviceConfigLoader$1.class
+com\dataorchestrate\common\NotificationSender.class
 com\dataorchestrate\common\DeviceIdentifier.class
 com\mpjmp\common\health\HealthStatus.class
-com\mpjmp\common\sync\ConflictResolver.class
+com\dataorchestrate\common\DeviceConfigLoader.class
 com\mpjmp\common\model\FileMetadata$FileMetadataBuilder.class
 AtlasHealthIndicator.class
 com\mpjmp\common\model\ProcessingStatus.class

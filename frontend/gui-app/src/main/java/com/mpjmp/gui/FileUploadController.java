@@ -18,13 +18,18 @@ import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.StackPane;
 import java.io.File;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import org.json.JSONObject;
 import com.mpjmp.gui.util.DeviceIdentifier;
 import com.mpjmp.gui.util.BackendDeviceIdProvider;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mpjmp.gui.utils.NotificationUtil;
 
 public class FileUploadController {
     @FXML private ProgressBar progressBar;
@@ -150,17 +155,19 @@ public class FileUploadController {
                     fileId,
                     selectedFile.getName(),
                     deviceId,
-                    "http://localhost:8081"
+                    getBackendUrl()
                 );
                 Platform.runLater(() -> {
                     updateStatus("Upload & replication successful! File ID: " + fileId, Color.GREEN);
                     progressBar.setProgress(1);
+                    NotificationUtil.showSuccess("Upload Complete", "File uploaded and replicated successfully!");
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     showErrorDialog("Upload/Replication failed", e.getMessage());
                     updateStatus("Failed: " + e.getMessage(), Color.RED);
                     uploadButton.setDisable(false);
+                    NotificationUtil.showError("Upload Failed", e.getMessage());
                 });
             }
         }).start();
@@ -208,5 +215,23 @@ public class FileUploadController {
         String name = file.getName();
         int lastDot = name.lastIndexOf('.');
         return (lastDot == -1) ? "unknown" : name.substring(lastDot + 1).toUpperCase();
+    }
+
+    // Use device info from devices.json for backend URLs
+    private String getBackendUrl() {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream is = getClass().getClassLoader().getResourceAsStream("devices.json");
+            List<Map<String, String>> allDevices = mapper.readValue(is, new TypeReference<List<Map<String, String>>>() {});
+            String selfDeviceName = System.getProperty("DEVICE_NAME", System.getenv("DEVICE_NAME"));
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
+            if (self != null) {
+                return "http://" + self.get("ip") + ":" + self.get("port");
+            } else {
+                throw new RuntimeException("Self device not found in device config");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load device config", e);
+        }
     }
 }

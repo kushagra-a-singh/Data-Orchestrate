@@ -6,14 +6,30 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import io.github.cdimascio.dotenv.Dotenv;
+import com.mpjmp.gui.utils.NotificationWebSocketClient;
+import com.mpjmp.gui.utils.NotificationUtil;
 
 public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        // Get the WebSocket client instance but don't connect yet
-        // This allows the application to start even if the notification service is down
-        // WebSocketClient.getInstance();
+        // Start WebSocket client for notifications
+        NotificationWebSocketClient.start(notification -> {
+            String type = (String) notification.getOrDefault("type", "info");
+            String title = (String) notification.getOrDefault("title", "Notification");
+            String message = (String) notification.getOrDefault("message", "");
+            switch (type) {
+                case "success":
+                    NotificationUtil.showSuccess(title, message);
+                    break;
+                case "error":
+                    NotificationUtil.showError(title, message);
+                    break;
+                default:
+                    NotificationUtil.showInfo(title, message);
+                    break;
+            }
+        });
         
         // Load the main FXML view
         Parent root = FXMLLoader.load(getClass().getResource("/views/main.fxml"));
@@ -22,9 +38,17 @@ public class Main extends Application {
         primaryStage.show();
     }
 
+    private static String getBasePath() {
+        String envPath = System.getenv("MPJMP_BASE_PATH");
+        if (envPath == null || envPath.isEmpty()) {
+            envPath = System.getProperty("MPJMP_BASE_PATH", System.getProperty("user.dir"));
+        }
+        return envPath;
+    }
+
     public static void main(String[] args) {
-        // Use absolute path for .env file location
-        String envPath = "D:/Kushagra/Programming/MPJ-MP/Data-Orchestrate";
+        // Use relative path for .env file location
+        String envPath = getBasePath();
         System.out.println("[DEBUG] Dotenv will search for .env in: " + envPath);
         Dotenv dotenv = Dotenv.configure()
             .directory(envPath)

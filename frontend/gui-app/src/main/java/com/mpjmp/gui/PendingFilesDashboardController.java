@@ -17,6 +17,11 @@ import java.net.URL;
 import java.util.Scanner;
 import com.mpjmp.gui.util.DeviceIdentifier;
 import com.mpjmp.gui.util.BackendDeviceIdProvider;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
 
 public class PendingFilesDashboardController {
     @FXML private TableView<PendingFileRow> pendingTable;
@@ -49,7 +54,7 @@ public class PendingFilesDashboardController {
     public void refreshPendingFiles() {
         new Thread(() -> {
             try {
-                URL url = new URL("http://localhost:8082/api/replication-status/device/" + deviceId + "/pending");
+                URL url = new URL(getPendingFilesUrl(deviceId));
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.connect();
@@ -81,6 +86,22 @@ public class PendingFilesDashboardController {
                 });
             }
         }).start();
+    }
+
+    // Use device info from devices.json for backend URLs
+    private String getPendingFilesUrl(String deviceId) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream is = getClass().getClassLoader().getResourceAsStream("devices.json");
+            List<Map<String, String>> allDevices = mapper.readValue(is, new TypeReference<List<Map<String, String>>>() {});
+            Map<String, String> peer = allDevices.stream().filter(d -> d.get("name").equals(deviceId)).findFirst().orElse(null);
+            if (peer != null) {
+                return "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/replication-status/device/" + deviceId + "/pending";
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load device config", e);
+        }
+        throw new RuntimeException("Device not found in config: " + deviceId);
     }
 
     /**

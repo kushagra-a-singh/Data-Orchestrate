@@ -1,5 +1,6 @@
 package com.mpjmp.orchestrator.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mpjmp.common.model.FileMetadata;
 import com.mpjmp.orchestrator.model.DeviceInfo;
@@ -8,6 +9,7 @@ import com.mpjmp.orchestrator.model.SyncDirection;
 import com.mpjmp.orchestrator.model.SyncHistory;
 import com.mpjmp.orchestrator.model.SyncRule;
 import com.mpjmp.orchestrator.repository.SyncRuleRepository;
+import com.dataorchestrate.common.DeviceConfigUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
@@ -21,6 +23,7 @@ import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -78,14 +81,20 @@ public class FileSyncService {
     @Value("${app.sync.dir}")
     private String syncDir;
 
-    @Value("${app.device.id}")
-    private String deviceId;
+    private Map<String, String> selfDevice;
+    private List<Map<String, String>> peerDevices;
 
-    // Track file versions to handle conflicts
-    private final ConcurrentHashMap<String, Long> fileVersions = new ConcurrentHashMap<>();
+    // Used to track file versions for conflict resolution
+    private final Map<String, Long> fileVersions = new ConcurrentHashMap<>();
 
-    private final Map<String, Long> lastReplicated = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Boolean> currentBatch = new ConcurrentHashMap<>();
+    @PostConstruct
+    public void initDeviceConfig() {
+        selfDevice = DeviceConfigUtil.getSelfDevice();
+        peerDevices = DeviceConfigUtil.getPeerDevices();
+        if (selfDevice == null) {
+            throw new RuntimeException("Could not identify self device from devices.json");
+        }
+    }
 
     @PostConstruct
     public void initChangeStream() {
@@ -107,7 +116,7 @@ public class FileSyncService {
 
     public void replicateFileToDevices(String fileId) {
         try {
-            // --- Fetch metadata from file-upload-service via HTTP, not MongoDB ---
+            // Fetch metadata from file-upload-service via HTTP, not MongoDB
             String metadataUrl = String.format("http://localhost:8081/api/files/metadata/%s", fileId);
             ResponseEntity<FileMetadata> response = restTemplate.getForEntity(metadataUrl, FileMetadata.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
@@ -120,32 +129,40 @@ public class FileSyncService {
                 log.error("Could not determine UUID file name for fileId: {}. fileMetadata: {}", fileId, fileMetadata);
                 return;
             }
-            List<DeviceInfo> devices = deviceInfoRepository.findAll();
-            for (DeviceInfo device : devices) {
-                if (!device.getDeviceId().equals(deviceId) && device.isOnline()) {
-                    uploadFileToDevice(fileId, uuidFileName, device);
+            List<String> peerUrls = getPeerDeviceUrls();
+            Map<String, Object> replicationRequest = new HashMap<>();
+            replicationRequest.put("fileId", fileMetadata.getFileName());
+            replicationRequest.put("fileName", fileMetadata.getFileName());
+            replicationRequest.put("originalFileName", fileMetadata.getOriginalFileName());
+            replicationRequest.put("deviceId", fileMetadata.getDeviceId());
+            replicationRequest.put("sourceDeviceUrl", getSelfDeviceUrl());
+            String requestJson = objectMapper.writeValueAsString(replicationRequest);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>(requestJson, headers);
+            for (String peerUrl : peerUrls) {
+                try {
+                    String replicationEndpoint = peerUrl + "/replicate-file";
+                    log.info("Sending replication request to peer device: {}", replicationEndpoint);
+                    restTemplate.postForEntity(replicationEndpoint, entity, String.class);
+                    log.info("Replication request sent to {}", peerUrl);
+                } catch (Exception e) {
+                    log.error("Failed to send replication request to peer device {}: {}", peerUrl, e.getMessage());
                 }
             }
         } catch (Exception e) {
-            log.error("Error replicating file to devices: {}", e.getMessage());
+            log.error("Error replicating file to peer devices: {}", e.getMessage(), e);
         }
     }
 
-    private void uploadFileToDevice(String fileId, String fileName, DeviceInfo device) {
-        try {
-            Path filePath = Paths.get(syncDir, fileName);
-            byte[] fileContent = Files.readAllBytes(filePath);
-            String uploadUrl = String.format("http://%s:8081/api/files/replicate", device.getDeviceName());
-            Map<String, Object> request = new HashMap<>();
-            request.put("fileId", fileId);
-            request.put("fileName", fileName); // Always UUID
-            request.put("content", fileContent);
-            request.put("version", fileVersions.get(fileId));
-            restTemplate.postForObject(uploadUrl, request, Void.class);
-            log.info("Replicated file {} to device {}", fileName, device.getDeviceId());
-        } catch (Exception e) {
-            log.error("Failed to replicate file {} to device {}: {}", fileName, device.getDeviceId(), e.getMessage());
-        }
+    private String getSelfDeviceUrl() {
+        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("port");
+    }
+
+    private List<String> getPeerDeviceUrls() {
+        return peerDevices.stream()
+            .map(d -> "http://" + d.get("ip") + ":" + d.get("port"))
+            .collect(Collectors.toList());
     }
 
     public void handleFileConflict(String fileId, String fileName, String sourceDeviceId, long sourceVersion) {
@@ -163,10 +180,10 @@ public class FileSyncService {
         } else if (sourceVersion < localVersion) {
             // Local version is newer, send it to the source device
             try {
-                // There is no uploadFile method; replicate using uploadFileToDevice
-                Optional<DeviceInfo> deviceOpt = deviceInfoRepository.findById(sourceDeviceId);
-                if (deviceOpt.isPresent()) {
-                    uploadFileToDevice(fileId, fileName, deviceOpt.get());
+                Map<String, String> peer = peerDevices.stream().filter(d -> d.get("name").equals(sourceDeviceId)).findFirst().orElse(null);
+                if (peer != null) {
+                    String peerUrl = "http://" + peer.get("ip") + ":" + peer.get("port");
+                    uploadFileToDevice(fileId, fileName, peerUrl);
                     log.info("Resolved conflict for file {}: sent local version to device {}", fileName, sourceDeviceId);
                 } else {
                     log.error("Device not found for conflict upload: {}", sourceDeviceId);
@@ -188,13 +205,16 @@ public class FileSyncService {
         }
 
         // Download file from source device
-        String downloadUrl = String.format("http://%s:8081/api/files/%s/download", sourceDeviceId, fileId);
-        byte[] fileContent = restTemplate.getForObject(downloadUrl, byte[].class);
+        Map<String, String> peer = peerDevices.stream().filter(d -> d.get("name").equals(sourceDeviceId)).findFirst().orElse(null);
+        if (peer != null) {
+            String downloadUrl = "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/files/" + fileId + "/download";
+            byte[] fileContent = restTemplate.getForObject(downloadUrl, byte[].class);
 
-        // Save file
-        Path filePath = syncPath.resolve(fileName);
-        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
-            fos.write(fileContent);
+            // Save file
+            Path filePath = syncPath.resolve(fileName);
+            try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
+                fos.write(fileContent);
+            }
         }
     }
 
@@ -223,23 +243,17 @@ public class FileSyncService {
             String metadataJson = objectMapper.writeValueAsString(fileMetadata);
             
             // Get device info
-            Optional<DeviceInfo> deviceOpt = deviceInfoRepository.findById(deviceId);
-            if (!deviceOpt.isPresent()) {
-                log.error("Device not found: {}", deviceId);
-                return;
+            Map<String, String> peer = peerDevices.stream().filter(d -> d.get("name").equals(deviceId)).findFirst().orElse(null);
+            if (peer != null) {
+                String metadataUrl = "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/files/metadata";
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                
+                HttpEntity<String> request = new HttpEntity<>(metadataJson, headers);
+                restTemplate.postForEntity(metadataUrl, request, Void.class);
+                
+                log.info("Metadata transferred for file: {} to device: {}", fileId, deviceId);
             }
-            
-            DeviceInfo device = deviceOpt.get();
-            
-            // Send metadata to device
-            String metadataUrl = String.format("http://%s:8081/api/files/metadata", device.getDeviceName());
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            HttpEntity<String> request = new HttpEntity<>(metadataJson, headers);
-            restTemplate.postForEntity(metadataUrl, request, Void.class);
-            
-            log.info("Metadata transferred for file: {} to device: {}", fileId, deviceId);
         } catch (Exception e) {
             log.error("Error transferring metadata for file: {} to device: {}", fileId, deviceId, e);
         }
@@ -257,80 +271,75 @@ public class FileSyncService {
             }
             
             // Get device info
-            Optional<DeviceInfo> deviceOpt = deviceInfoRepository.findById(deviceId);
-            if (!deviceOpt.isPresent()) {
-                log.error("Device not found: {}", deviceId);
-                return;
-            }
-            
-            DeviceInfo device = deviceOpt.get();
-            
-            // Prepare for chunked transfer
-            String fileName = gridFSFile.getFilename();
-            long fileSize = gridFSFile.getLength();
-            int chunkSize = 1024 * 1024; // 1MB chunks
-            long totalChunks = (fileSize + chunkSize - 1) / chunkSize;
-            
-            // Create a temporary file to store the downloaded content
-            Path tempFilePath = Files.createTempFile("gridfs-", fileName);
-            try (GridFSDownloadStream downloadStream = gridFSBucket.openDownloadStream(gridFSFile.getObjectId());
-                 FileOutputStream outputStream = new FileOutputStream(tempFilePath.toFile())) {
+            Map<String, String> peer = peerDevices.stream().filter(d -> d.get("name").equals(deviceId)).findFirst().orElse(null);
+            if (peer != null) {
+                // Prepare for chunked transfer
+                String fileName = gridFSFile.getFilename();
+                long fileSize = gridFSFile.getLength();
+                int chunkSize = 1024 * 1024; // 1MB chunks
+                long totalChunks = (fileSize + chunkSize - 1) / chunkSize;
                 
-                byte[] buffer = new byte[chunkSize];
-                int bytesRead;
-                long currentChunk = 0;
-                
-                while ((bytesRead = downloadStream.read(buffer)) != -1) {
-                    // Before creating ByteArrayResource
-                    final long chunkIndexForResource = currentChunk;
-                    ByteArrayResource resource = new ByteArrayResource(java.util.Arrays.copyOf(buffer, bytesRead)) {
-                        @Override
-                        public String getFilename() {
-                            return fileName + ".part" + chunkIndexForResource;
-                        }
-                    };
+                // Create a temporary file to store the downloaded content
+                Path tempFilePath = Files.createTempFile("gridfs-", fileName);
+                try (GridFSDownloadStream downloadStream = gridFSBucket.openDownloadStream(gridFSFile.getObjectId());
+                     FileOutputStream outputStream = new FileOutputStream(tempFilePath.toFile())) {
                     
-                    // Send chunk to device
-                    String chunkUrl = String.format("http://%s:8081/api/files/chunk", device.getDeviceName());
+                    byte[] buffer = new byte[chunkSize];
+                    int bytesRead;
+                    long currentChunk = 0;
                     
-                    MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-                    body.add("fileId", fileId);
-                    body.add("fileName", fileName);
-                    body.add("chunkIndex", currentChunk);
-                    body.add("totalChunks", totalChunks);
-                    
-                    body.add("chunk", resource);
-                    
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-                    
-                    HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-                    restTemplate.postForEntity(chunkUrl, requestEntity, Void.class);
-                    
-                    // Write to local temp file as well
-                    outputStream.write(buffer, 0, bytesRead);
-                    
-                    currentChunk++;
-                    
-                    // Update progress
-                    double progress = 0.3 + (0.6 * currentChunk / totalChunks);
-                    // replicationTracker.trackProgress(fileId, deviceId, progress);
+                    while ((bytesRead = downloadStream.read(buffer)) != -1) {
+                        // Before creating ByteArrayResource
+                        final long chunkIndexForResource = currentChunk;
+                        ByteArrayResource resource = new ByteArrayResource(java.util.Arrays.copyOf(buffer, bytesRead)) {
+                            @Override
+                            public String getFilename() {
+                                return fileName + ".part" + chunkIndexForResource;
+                            }
+                        };
+                        
+                        // Send chunk to device
+                        String chunkUrl = "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/files/chunk";
+                        
+                        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+                        body.add("fileId", fileId);
+                        body.add("fileName", fileName);
+                        body.add("chunkIndex", currentChunk);
+                        body.add("totalChunks", totalChunks);
+                        
+                        body.add("chunk", resource);
+                        
+                        HttpHeaders headers = new HttpHeaders();
+                        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+                        
+                        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+                        restTemplate.postForEntity(chunkUrl, requestEntity, Void.class);
+                        
+                        // Write to local temp file as well
+                        outputStream.write(buffer, 0, bytesRead);
+                        
+                        currentChunk++;
+                        
+                        // Update progress
+                        double progress = 0.3 + (0.6 * currentChunk / totalChunks);
+                        // replicationTracker.trackProgress(fileId, deviceId, progress);
+                    }
                 }
+                
+                // Copy the file to the local storage directory
+                Path storageDir = Paths.get(syncDir);
+                if (!Files.exists(storageDir)) {
+                    Files.createDirectories(storageDir);
+                }
+                
+                Path targetPath = storageDir.resolve(fileName);
+                Files.copy(tempFilePath, targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                
+                // Delete the temp file
+                Files.delete(tempFilePath);
+                
+                log.info("File chunks transferred for file: {} to device: {}", fileId, deviceId);
             }
-            
-            // Copy the file to the local storage directory
-            Path storageDir = Paths.get(syncDir);
-            if (!Files.exists(storageDir)) {
-                Files.createDirectories(storageDir);
-            }
-            
-            Path targetPath = storageDir.resolve(fileName);
-            Files.copy(tempFilePath, targetPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            
-            // Delete the temp file
-            Files.delete(tempFilePath);
-            
-            log.info("File chunks transferred for file: {} to device: {}", fileId, deviceId);
         } catch (Exception e) {
             log.error("Error transferring file chunks for file: {} to device: {}", fileId, deviceId, e);
         }
@@ -339,33 +348,28 @@ public class FileSyncService {
     private void verifyTransfer(String fileId, String deviceId) {
         try {
             // Get device info
-            Optional<DeviceInfo> deviceOpt = deviceInfoRepository.findById(deviceId);
-            if (!deviceOpt.isPresent()) {
-                log.error("Device not found: {}", deviceId);
-                return;
-            }
-            
-            DeviceInfo device = deviceOpt.get();
-            
-            // Send verification request
-            String verifyUrl = String.format("http://%s:8081/api/files/%s/verify", device.getDeviceName(), fileId);
-            Boolean verified = restTemplate.getForObject(verifyUrl, Boolean.class);
-            
-            if (Boolean.TRUE.equals(verified)) {
-                log.info("File transfer verified for file: {} to device: {}", fileId, deviceId);
+            Map<String, String> peer = peerDevices.stream().filter(d -> d.get("name").equals(deviceId)).findFirst().orElse(null);
+            if (peer != null) {
+                // Send verification request
+                String verifyUrl = "http://" + peer.get("ip") + ":" + peer.get("port") + "/api/files/" + fileId + "/verify";
+                Boolean verified = restTemplate.getForObject(verifyUrl, Boolean.class);
                 
-                // Update sync history
-                SyncHistory syncHistory = new SyncHistory();
-                syncHistory.setFileId(fileId);
-                syncHistory.setSourceDeviceId(deviceId);
-                syncHistory.setTargetDeviceId(deviceId);
-                syncHistory.setSyncTime(LocalDateTime.now());
-                syncHistory.setStatus("COMPLETED");
-                
-                mongoTemplate.save(syncHistory, "sync_history");
-            } else {
-                log.error("File transfer verification failed for file: {} to device: {}", fileId, deviceId);
-                throw new RuntimeException("File transfer verification failed");
+                if (Boolean.TRUE.equals(verified)) {
+                    log.info("File transfer verified for file: {} to device: {}", fileId, deviceId);
+                    
+                    // Update sync history
+                    SyncHistory syncHistory = new SyncHistory();
+                    syncHistory.setFileId(fileId);
+                    syncHistory.setSourceDeviceId(deviceId);
+                    syncHistory.setTargetDeviceId(deviceId);
+                    syncHistory.setSyncTime(LocalDateTime.now());
+                    syncHistory.setStatus("COMPLETED");
+                    
+                    mongoTemplate.save(syncHistory, "sync_history");
+                } else {
+                    log.error("File transfer verification failed for file: {} to device: {}", fileId, deviceId);
+                    throw new RuntimeException("File transfer verification failed");
+                }
             }
         } catch (Exception e) {
             log.error("Error verifying file transfer for file: {} to device: {}", fileId, deviceId, e);
@@ -378,7 +382,37 @@ public class FileSyncService {
         
         // Filter out the current device
         return onlineDevices.stream()
-            .filter(device -> !device.getId().equals(deviceId))
+            .filter(device -> !device.getId().equals(selfDevice.get("name")))
             .collect(Collectors.toList());
+    }
+
+    // Uploads the local version of a file to a peer device for conflict resolution
+    private void uploadFileToDevice(String fileId, String fileName, String peerUrl) {
+        try {
+            // Construct upload endpoint
+            String uploadEndpoint = peerUrl + "/api/files/replicate";
+
+            // Retrieve file from local sync directory
+            Path filePath = Paths.get(syncDir, fileName);
+            if (!Files.exists(filePath)) {
+                log.error("File not found for upload: {}", filePath);
+                return;
+            }
+
+            // Prepare multipart request
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", new FileSystemResource(filePath));
+            body.add("fileId", fileId);
+            body.add("fileName", fileName);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            restTemplate.postForEntity(uploadEndpoint, requestEntity, String.class);
+            log.info("Uploaded file {} to peer device {}", fileName, peerUrl);
+        } catch (Exception e) {
+            log.error("Error uploading file {} to peer device {}: {}", fileName, peerUrl, e.getMessage());
+        }
     }
 }

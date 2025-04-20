@@ -2,6 +2,7 @@ package com.mpjmp.gui.api;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,10 +15,36 @@ import java.net.ConnectException;
 import org.json.JSONObject;
 import org.json.JSONArray;
 import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.dataorchestrate.common.DeviceConfigUtil;
 
 public class FileUploadService {
-    private static final String UPLOAD_URL = "http://localhost:8081/api/files/upload";
-    private static final String REPLICATE_URL = "http://localhost:8085/replicate-file";
+    // Use devices.json for all device info
+    private static List<Map<String, String>> allDevices;
+    private static String selfDeviceName;
+    private static String uploadUrl;
+    private static String replicateUrl;
+    static {
+        try {
+            // Use backend DeviceConfigUtil for device info
+            allDevices = DeviceConfigUtil.getAllDevices();
+            selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
+            if (self != null) {
+                uploadUrl = "http://" + self.get("ip") + ":" + self.get("port") + "/api/files/upload";
+                replicateUrl = "http://" + self.get("ip") + ":" + self.get("port") + "/api/files/replicate";
+            } else {
+                uploadUrl = null;
+                replicateUrl = null;
+            }
+        } catch (Exception e) {
+            uploadUrl = null;
+            replicateUrl = null;
+        }
+    }
 
     public static String uploadFile(File file, String uploadedBy, String deviceId) {
         try {
@@ -52,7 +79,7 @@ public class FileUploadService {
                 pos += b.length;
             }
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(UPLOAD_URL))
+                    .uri(URI.create(uploadUrl))
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
                     .build();
@@ -74,7 +101,7 @@ public class FileUploadService {
             // The backend expects to construct: <sourceDeviceUrl>/api/files/download/<deviceId>/<fileName>
             replicationRequest.put("sourceDeviceUrl", sourceDeviceUrl);
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(REPLICATE_URL))
+                    .uri(URI.create(replicateUrl))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(replicationRequest.toString()))
                     .build();

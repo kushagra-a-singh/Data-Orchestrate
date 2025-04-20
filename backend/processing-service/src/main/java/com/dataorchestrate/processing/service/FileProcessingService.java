@@ -1,7 +1,9 @@
 package com.dataorchestrate.processing.service;
 
 import com.dataorchestrate.processing.model.ProcessingJob;
+import com.dataorchestrate.processing.model.FileMetadata;
 import com.dataorchestrate.processing.repository.ProcessingJobRepository;
+import com.dataorchestrate.common.NotificationSender;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -9,6 +11,8 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -48,6 +52,7 @@ public class FileProcessingService {
         this.mongoTemplate = mongoTemplate;
     }
 
+    // Main entry for processing files (extended for PDF extraction)
     public void processFile(String message) {
         try {
             Map<String, Object> event = parseEvent(message);
@@ -70,10 +75,24 @@ public class FileProcessingService {
             job.setStartedAt(startedAt);
             job.setMetadata(metadata);
 
+            // Save job metadata
             processingJobRepository.save(job);
+
+            // --- PDF Extraction Integration ---
+            if (fileName != null && fileName.toLowerCase().endsWith(".pdf")) {
+                // Find the file path (assuming stored in uploadDir/fileId_fileName)
+                Path pdfPath = Paths.get(uploadDir, fileId + "_" + fileName);
+                File pdfFile = pdfPath.toFile();
+                if (pdfFile.exists()) {
+                    log.info("Detected PDF file. Extracting text for: {}", pdfFile.getAbsolutePath());
+                    processPdfAndUpdateMetadata(pdfFile, fileId);
+                } else {
+                    log.warn("PDF file not found for extraction: {}", pdfPath);
+                }
+            }
         } catch (Exception e) {
             log.error("Error processing file: {}", message, e);
-            throw e;
+            throw new RuntimeException("File processing failed", e);
         }
     }
 
@@ -218,29 +237,81 @@ public class FileProcessingService {
         }
     }
 
-    // Add a PDF text extraction utility method
-    private String extractText(File file) throws Exception {
+    // Unified PDF processing method: extract text and update FileMetadata
+    public void processPdfAndUpdateMetadata(File file, String fileId) throws Exception {
+        Optional<FileMetadata> metadataOpt = findFileMetadataByFileId(fileId);
+        if (metadataOpt.isEmpty()) {
+            log.error("No FileMetadata found for fileId: {}. Cannot save extracted text.", fileId);
+            NotificationSender.sendNotification(
+                "error",
+                "PDF Extraction Failed",
+                "No FileMetadata found for fileId: " + fileId,
+                null,
+                fileId,
+                null,
+                file.getAbsolutePath()
+            );
+            return;
+        }
+        FileMetadata metadata = metadataOpt.get();
         try (PDDocument document = PDDocument.load(file)) {
             PDFTextStripper stripper = new PDFTextStripper();
-            return stripper.getText(document);
+            String text = stripper.getText(document);
+            metadata.setExtractedText(text);
+            if (text != null && !text.isEmpty()) {
+                log.info("PDF extracted text (first 100 chars): {}", text.substring(0, Math.min(100, text.length())));
+                NotificationSender.sendNotification(
+                    "success",
+                    "PDF Text Extraction Complete",
+                    "Extracted text from PDF: " + file.getName(),
+                    1.0,
+                    fileId,
+                    metadata.getDeviceId(),
+                    file.getAbsolutePath()
+                );
+            } else {
+                log.warn("No text extracted from PDF: {}", file.getAbsolutePath());
+                NotificationSender.sendNotification(
+                    "warning",
+                    "PDF Extraction Warning",
+                    "No text could be extracted from PDF: " + file.getName(),
+                    null,
+                    fileId,
+                    metadata.getDeviceId(),
+                    file.getAbsolutePath()
+                );
+            }
+            // Store additional metadata
+            Map<String, Object> additionalMetadata = new HashMap<>();
+            additionalMetadata.put("pageCount", document.getNumberOfPages());
+            metadata.setMetadata(additionalMetadata);
+            // Persist metadata after extraction
+            mongoTemplate.save(metadata);
+            log.info("Saved FileMetadata with extractedText for file: {}", file.getAbsolutePath());
+        } catch (Exception e) {
+            log.error("PDF processing failed for: {}", file.getName(), e);
+            NotificationSender.sendNotification(
+                "error",
+                "PDF Extraction Error",
+                "Exception during PDF text extraction: " + e.getMessage(),
+                null,
+                fileId,
+                metadataOpt.map(FileMetadata::getDeviceId).orElse(null),
+                file.getAbsolutePath()
+            );
+            throw new Exception("PDF text extraction failed", e);
         }
     }
 
-    public void processPDF(File file) throws ProcessingException {
-        try {
-            String extractedText = extractText(file);
-            
-            Document metadata = new Document()
-                .append("originalFile", file.getName())
-                .append("extractedText", extractedText)
-                .append("processingTime", Instant.now())
-                .append("fileSize", file.length());
-                
-            mongoTemplate.insert(metadata, "extracted_texts");
-            log.info("Stored extracted text for: {}", file.getName());
-        } catch (Exception e) {
-            log.error("PDF processing failed for: {}", file.getName(), e);
-            throw new ProcessingException("PDF text extraction failed", e);
-        }
+    // Utility to find FileMetadata by fileId
+    private Optional<FileMetadata> findFileMetadataByFileId(String fileId) {
+        Query query = new Query(Criteria.where("fileId").is(fileId));
+        FileMetadata metadata = mongoTemplate.findOne(query, FileMetadata.class);
+        return Optional.ofNullable(metadata);
     }
+
+    // DEPRECATED: Remove old processPDF method that saves to extracted_texts
+    // public void processPDF(File file) throws ProcessingException {
+    //     ... (removed)
+    // }
 }

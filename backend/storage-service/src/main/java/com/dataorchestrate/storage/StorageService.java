@@ -1,6 +1,7 @@
 package com.dataorchestrate.storage;
 
 import com.dataorchestrate.common.DeviceIdentifier;
+import com.dataorchestrate.common.NotificationSender;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,9 @@ public class StorageService {
     public void storeFile(byte[] content, String fileId, String fileName) throws IOException {
         String deviceId = deviceIdentifier.getDeviceId();
         logger.info("Storing file {} for device {}", fileName, deviceId);
-        
+        NotificationSender.sendNotification(
+            "info", "Storage Started", "Storing file: " + fileName, 0.0, fileId, deviceId, null
+        );
         // Create device-specific directory
         Path deviceDir = Paths.get(storageDir, deviceId);
         Files.createDirectories(deviceDir);
@@ -47,6 +50,9 @@ public class StorageService {
         Files.write(dataFilePath, content);
         
         logger.info("File {} stored successfully at {} and in data directory", fileName, filePath);
+        NotificationSender.sendNotification(
+            "success", "Storage Complete", "File stored at: " + filePath.toString(), 1.0, fileId, deviceId, filePath.toString()
+        );
     }
     
     public byte[] retrieveFile(String fileId, String fileName) throws IOException {

@@ -20,3 +20,5 @@ D:\Kushagra\Programming\MPJ-MP\Data-Orchestrate\frontend\gui-app\src\main\java\c
 D:\Kushagra\Programming\MPJ-MP\Data-Orchestrate\frontend\gui-app\src\main\java\com\mpjmp\gui\util\BackendDeviceIdProvider.java
 D:\Kushagra\Programming\MPJ-MP\Data-Orchestrate\frontend\gui-app\src\main\java\com\mpjmp\gui\util\DeviceIdentifier.java
 D:\Kushagra\Programming\MPJ-MP\Data-Orchestrate\frontend\gui-app\src\main\java\com\mpjmp\gui\utils\ErrorDialog.java
+D:\Kushagra\Programming\MPJ-MP\Data-Orchestrate\frontend\gui-app\src\main\java\com\mpjmp\gui\utils\NotificationUtil.java
+D:\Kushagra\Programming\MPJ-MP\Data-Orchestrate\frontend\gui-app\src\main\java\com\mpjmp\gui\utils\NotificationWebSocketClient.java

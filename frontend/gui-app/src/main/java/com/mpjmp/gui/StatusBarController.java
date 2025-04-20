@@ -9,6 +9,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import javafx.application.Platform;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
+import com.dataorchestrate.common.DeviceConfigUtil;
 
 public class StatusBarController {
     @FXML private Label statusLabel;
@@ -28,7 +33,7 @@ public class StatusBarController {
         try {
             HttpResponse<String> response = HttpClient.newHttpClient().send(
                 HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:8080/health"))
+                    .uri(URI.create(getHealthStatusUrl()))
                     .GET()
                     .build(),
                 HttpResponse.BodyHandlers.ofString()
@@ -49,5 +54,20 @@ public class StatusBarController {
                 statusLabel.setStyle("-fx-text-fill: red;");
             });
         }
+    }
+    
+    // Use device info from devices.json for health status URL
+    private String getHealthStatusUrl() {
+        try {
+            List<Map<String, String>> allDevices = DeviceConfigUtil.getAllDevices();
+            String selfDeviceName = DeviceConfigUtil.getSelfDeviceName();
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
+            if (self != null) {
+                return "http://" + self.get("ip") + ":" + self.get("port") + "/health";
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load device config", e);
+        }
+        throw new RuntimeException("Self device not found in config");
     }
 }

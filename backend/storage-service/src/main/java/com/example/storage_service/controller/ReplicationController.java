@@ -1,4 +1,4 @@
-package com.mpjmp.storage.controller;
+package com.example.storage_service.controller;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;

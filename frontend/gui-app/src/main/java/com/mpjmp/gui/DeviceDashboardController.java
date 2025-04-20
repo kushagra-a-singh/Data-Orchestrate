@@ -14,6 +14,11 @@ import org.json.JSONObject;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Scanner;
+import java.util.List;
+import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
 
 public class DeviceDashboardController {
     @FXML private TableView<DeviceInfoRow> deviceTable;
@@ -46,7 +51,7 @@ public class DeviceDashboardController {
     public void refreshDeviceTable() {
         new Thread(() -> {
             try {
-                URL url = new URL("http://localhost:8082/api/devices");
+                URL url = new URL(getDevicesUrl());
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.connect();
@@ -72,6 +77,24 @@ public class DeviceDashboardController {
                 Platform.runLater(() -> refreshLabel.setText("Failed to fetch devices"));
             }
         }).start();
+    }
+
+    // Use device info from devices.json for devices endpoint URL
+    private String getDevicesUrl() {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream is = getClass().getClassLoader().getResourceAsStream("devices.json");
+            List<Map<String, String>> allDevices = mapper.readValue(is, new TypeReference<List<Map<String, String>>>() {});
+            String selfDeviceName = System.getProperty("DEVICE_NAME", System.getenv("DEVICE_NAME"));
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(selfDeviceName)).findFirst().orElse(null);
+            if (self != null) {
+                return "http://" + self.get("ip") + ":" + self.get("port") + "/api/devices";
+            } else {
+                throw new RuntimeException("Self device not found in device config");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load device config", e);
+        }
     }
 
     public static class DeviceInfoRow {

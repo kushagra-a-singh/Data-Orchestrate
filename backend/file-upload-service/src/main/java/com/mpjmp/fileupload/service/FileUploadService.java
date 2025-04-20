@@ -1,9 +1,12 @@
 package com.mpjmp.fileupload.service;
 
+import com.dataorchestrate.common.DeviceConfigUtil;
 import com.dataorchestrate.common.DeviceIdentifier;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mpjmp.common.model.FileMetadata;
 import com.mpjmp.fileupload.repository.FileMetadataRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 @Slf4j
@@ -42,8 +47,17 @@ public class FileUploadService {
     @Value("${app.upload.dir}")
     private String uploadDir;
 
-    @Value("${app.device.url}")
-    private String deviceUrl;
+    private Map<String, String> selfDevice;
+    private List<Map<String, String>> peerDevices;
+
+    @PostConstruct
+    private void initDeviceConfig() {
+        selfDevice = DeviceConfigUtil.getSelfDevice();
+        peerDevices = DeviceConfigUtil.getPeerDevices();
+        if (selfDevice == null) {
+            throw new RuntimeException("Could not identify self device from devices.json");
+        }
+    }
 
     public String getAbsoluteUploadDir() {
         // Always use an absolute path for uploads
@@ -233,38 +247,23 @@ public class FileUploadService {
      */
     private void notifyPeerDevicesAboutNewFile(FileMetadata metadata) {
         try {
-            // Get list of peer devices from configuration or database
-            List<String> peerDevices = getPeerDeviceUrls();
-            
-            // Create a replication request object
+            List<String> peerUrls = getPeerDeviceUrls();
             Map<String, Object> replicationRequest = new HashMap<>();
-            // Always send both the stored (UUID) file name and the original file name
-            replicationRequest.put("fileId", metadata.getFileName()); // UUID filename as string
-            replicationRequest.put("fileName", metadata.getFileName()); // Use UUID for fileName for replication
-            replicationRequest.put("originalFileName", metadata.getOriginalFileName()); // For traceability
+            replicationRequest.put("fileId", metadata.getFileName());
+            replicationRequest.put("fileName", metadata.getFileName());
+            replicationRequest.put("originalFileName", metadata.getOriginalFileName());
             replicationRequest.put("deviceId", metadata.getDeviceId());
-            replicationRequest.put("sourceDeviceUrl", deviceUrl);  // Use configured device URL
-
-            // Convert to JSON
+            replicationRequest.put("sourceDeviceUrl", getSelfDeviceUrl());
             String requestJson = objectMapper.writeValueAsString(replicationRequest);
-            
-            // Set headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            // Create HTTP entity
             HttpEntity<String> entity = new HttpEntity<>(requestJson, headers);
-            
-            // Send to all peer devices
             RestTemplate restTemplate = new RestTemplate();
-            for (String peerUrl : peerDevices) {
+            for (String peerUrl : peerUrls) {
                 try {
                     String replicationEndpoint = peerUrl + "/replicate-file";
                     log.info("Sending replication request to peer device: {}", replicationEndpoint);
-                    restTemplate.postForEntity(
-                            replicationEndpoint, 
-                            entity, 
-                            String.class);
+                    restTemplate.postForEntity(replicationEndpoint, entity, String.class);
                     log.info("Replication request sent to {}", peerUrl);
                 } catch (Exception e) {
                     log.error("Failed to send replication request to peer device {}: {}", peerUrl, e.getMessage());
@@ -274,19 +273,14 @@ public class FileUploadService {
             log.error("Error notifying peer devices about new file: {}", e.getMessage(), e);
         }
     }
-    
-    /**
-     * Get the list of peer device URLs for replication
-     * In a production environment, this would come from a service registry or configuration
-     */
+
+    private String getSelfDeviceUrl() {
+        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("port");
+    }
+
     private List<String> getPeerDeviceUrls() {
-        // For now, hardcode peer devices for testing
-        // In production, this would come from a service registry or database
-        List<String> peerUrls = new ArrayList<>();
-        
-        // Add your Device B's storage-service URL here
-        peerUrls.add("http://192.168.1.5:8085");  // Example: Device B's storage-service
-        
-        return peerUrls;
+        return peerDevices.stream()
+            .map(d -> "http://" + d.get("ip") + ":" + d.get("port"))
+            .collect(Collectors.toList());
     }
 }

@@ -16,6 +16,11 @@ import java.net.URL;
 import java.util.Scanner;
 import com.mpjmp.gui.util.DeviceIdentifier;
 import com.mpjmp.gui.util.BackendDeviceIdProvider;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
 
 public class ReplicationStatusDashboardController {
     @FXML private TableView<ReplicationStatusRow> statusTable;
@@ -52,7 +57,7 @@ public class ReplicationStatusDashboardController {
     public void refreshReplicationStatus() {
         new Thread(() -> {
             try {
-                URL url = new URL("http://localhost:8082/api/replication-status/device/" + deviceId);
+                URL url = new URL(getReplicationStatusUrl(deviceId));
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.connect();
@@ -86,7 +91,7 @@ public class ReplicationStatusDashboardController {
 
     private int getPendingCount() {
         try {
-            URL url = new URL("http://localhost:8085/api/replication-status/device/" + deviceId + "/pending");
+            URL url = new URL(getPendingCountUrl(deviceId));
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.connect();
@@ -98,6 +103,38 @@ public class ReplicationStatusDashboardController {
             return arr.length();
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    private String getReplicationStatusUrl(String deviceId) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream is = getClass().getClassLoader().getResourceAsStream("devices.json");
+            List<Map<String, String>> allDevices = mapper.readValue(is, new TypeReference<List<Map<String, String>>>() {});
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(System.getProperty("DEVICE_NAME", System.getenv("DEVICE_NAME")))).findFirst().orElse(null);
+            if (self != null) {
+                return "http://" + self.get("ip") + ":" + self.get("port") + "/api/replication-status/device/" + deviceId;
+            } else {
+                throw new RuntimeException("Self device not found in device config");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load device config", e);
+        }
+    }
+
+    private String getPendingCountUrl(String deviceId) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            InputStream is = getClass().getClassLoader().getResourceAsStream("devices.json");
+            List<Map<String, String>> allDevices = mapper.readValue(is, new TypeReference<List<Map<String, String>>>() {});
+            Map<String, String> self = allDevices.stream().filter(d -> d.get("name").equals(System.getProperty("DEVICE_NAME", System.getenv("DEVICE_NAME")))).findFirst().orElse(null);
+            if (self != null) {
+                return "http://" + self.get("ip") + ":" + self.get("port") + "/api/replication-status/device/" + deviceId + "/pending";
+            } else {
+                throw new RuntimeException("Self device not found in device config");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to load device config", e);
         }
     }
 
