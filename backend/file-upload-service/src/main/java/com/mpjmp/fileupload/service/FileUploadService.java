@@ -127,6 +127,17 @@ public class FileUploadService {
         return mongoTemplate.findOne(query, FileMetadata.class);
     }
 
+    /**
+     * Find file metadata by original file name and deviceId
+     * This is useful for replication when we only have the original filename
+     */
+    public FileMetadata findFileByOriginalName(String deviceId, String originalFileName) {
+        org.springframework.data.mongodb.core.query.Query query = new org.springframework.data.mongodb.core.query.Query();
+        query.addCriteria(org.springframework.data.mongodb.core.query.Criteria.where("deviceId").is(deviceId)
+                .and("originalFileName").is(originalFileName));
+        return mongoTemplate.findOne(query, FileMetadata.class);
+    }
+
     public List<FileMetadata> listFiles(String status, String uploadedBy) {
         Query query = new Query();
         

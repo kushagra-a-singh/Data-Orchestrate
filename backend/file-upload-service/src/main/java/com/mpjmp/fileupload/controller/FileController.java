@@ -115,18 +115,37 @@ public class FileController {
         log.info("[DOWNLOAD] Decoded fileName: {}", decodedFileName);
 
         // --- CRITICAL: Always use the UUID (stored) fileName for lookup, not originalFileName ---
-        Path filePath = Paths.get(fileUploadService.getAbsoluteUploadDir()).resolve(deviceId).resolve(decodedFileName);
+        Path uploadDirPath = Paths.get(fileUploadService.getAbsoluteUploadDir());
+        Path deviceDirPath = uploadDirPath.resolve(deviceId);
+        
+        // First try direct path with the provided filename
+        Path filePath = deviceDirPath.resolve(decodedFileName);
         log.info("[DOWNLOAD] Resolved filePath: {}", filePath.toAbsolutePath());
+        
+        // If file doesn't exist, try to find it by querying the database
+        if (!Files.exists(filePath)) {
+            log.warn("[DOWNLOAD] File not found at direct path: {}", filePath.toAbsolutePath());
+            
+            // Try to find the file metadata by original filename
+            FileMetadata metadata = fileUploadService.findFileByOriginalName(deviceId, decodedFileName);
+            if (metadata != null && metadata.getFileName() != null) {
+                // Use the UUID filename from metadata
+                filePath = deviceDirPath.resolve(metadata.getFileName());
+                log.info("[DOWNLOAD] Found file by metadata, trying path: {}", filePath.toAbsolutePath());
+            }
+        }
+        
         if (!Files.exists(filePath)) {
             log.warn("[DOWNLOAD] File not found at path: {}", filePath.toAbsolutePath());
             return ResponseEntity.notFound().build();
         }
+        
         InputStream inputStream = Files.newInputStream(filePath);
         InputStreamResource resource = new InputStreamResource(inputStream);
         // Always set Content-Disposition to the original file name if possible
         String originalFileName = decodedFileName;
         // Try to get originalFileName from metadata
-        FileMetadata metadata = fileUploadService.getFileMetadataByStoredFileName(deviceId, decodedFileName);
+        FileMetadata metadata = fileUploadService.getFileMetadataByStoredFileName(deviceId, filePath.getFileName().toString());
         if (metadata != null && metadata.getOriginalFileName() != null) {
             originalFileName = metadata.getOriginalFileName();
         }

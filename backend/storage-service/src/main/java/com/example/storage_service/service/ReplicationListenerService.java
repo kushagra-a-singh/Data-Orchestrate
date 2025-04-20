@@ -3,6 +3,7 @@ package com.example.storage_service.service;
 import com.example.storage_service.model.DeviceInfo;
 import com.example.storage_service.model.ReplicationRequest;
 import com.example.storage_service.repository.DeviceRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -48,19 +49,35 @@ public class ReplicationListenerService {
             log.info("[REPLICATION-LISTENER] Incoming ReplicationRequest: fileId={}, fileName={}, deviceId={}, sourceDeviceUrl={}", request.getFileId(), request.getFileName(), request.getDeviceId(), request.getSourceDeviceUrl());
             // Use deviceId and fileName for replication and download from filesystem endpoint
             String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "";
+
+            // Extract the fileName from the FileMetadata object
+            // The fileId field in the request actually contains the entire FileMetadata object as JSON
+            String fileName;
+            try {
+                // Parse the fileId as JSON to extract the fileName field
+                ObjectMapper mapper = new ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode fileMetadataNode = mapper.readTree(request.getFileId().toString());
+                fileName = fileMetadataNode.get("fileName").asText();
+                log.info("[REPLICATION-LISTENER] Extracted fileName from metadata: {}", fileName);
+            } catch (Exception e) {
+                // Fallback to using the fileName from the request if JSON parsing fails
+                fileName = request.getFileName();
+                log.warn("[REPLICATION-LISTENER] Failed to parse fileId as JSON, using request fileName: {}", fileName);
+            }
+
             // Use UUID fileName for download (fileName in request is UUID, not original)
             // --- CRITICAL: Always use the stored (UUID) file name for download, not originalFileName ---
-            String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + request.getFileName();
+            String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + fileName;
             log.info("[REPLICATION-LISTENER] Attempting to download file from: {}", downloadUrl);
 
             org.springframework.http.ResponseEntity<byte[]> response = new org.springframework.web.client.RestTemplate().getForEntity(downloadUrl, byte[].class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 java.nio.file.Path replicatedDir = java.nio.file.Paths.get("./data/replicated");
                 java.nio.file.Files.createDirectories(replicatedDir);
-                java.nio.file.Path targetPath = replicatedDir.resolve(request.getFileName());
+                java.nio.file.Path targetPath = replicatedDir.resolve(fileName);
                 log.info("[REPLICATION-LISTENER] Saving replicated file to: {}", targetPath.toAbsolutePath());
                 java.nio.file.Files.write(targetPath, response.getBody());
-                log.info("File {} replicated and saved to {}", request.getFileName(), targetPath.toAbsolutePath());
+                log.info("File {} replicated and saved to {}", fileName, targetPath.toAbsolutePath());
                 return ResponseEntity.ok("File replicated and saved to: " + targetPath.toAbsolutePath());
             } else {
                 log.error("Failed to download file from {}: status {}", downloadUrl, response.getStatusCode());
