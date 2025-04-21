@@ -31,7 +31,7 @@ public class ReplicationListenerService {
             // Use only the plain base URL for sourceDeviceUrl (no markdown brackets)
             String rawUrl = request.getSourceDeviceUrl();
             // Remove any markdown or bracketed formatting (e.g., [text](url))
-            String sourceUrl = rawUrl.replaceAll("[\[\]() ]", "");
+            String sourceUrl = rawUrl.replaceAll("[\\[\\]() ]", "");
             if (sourceUrl.endsWith(",")) {
                 sourceUrl = sourceUrl.substring(0, sourceUrl.length() - 1);
             }
