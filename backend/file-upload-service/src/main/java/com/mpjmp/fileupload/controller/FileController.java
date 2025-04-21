@@ -43,7 +43,20 @@ public class FileController {
             @RequestParam("file") MultipartFile file,
             @RequestParam("uploadedBy") String uploadedBy,
             @RequestParam(value = "deviceId", required = false) String deviceId) throws IOException {
-        Map<String, Object> resp = fileUploadService.uploadFileWithMeta(file, uploadedBy, deviceId, getDeviceIp());
+        FileMetadata metadata = fileUploadService.uploadFile(file, uploadedBy, deviceId, getDeviceIp());
+        Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("fileId", metadata.getId());
+        resp.put("fileName", metadata.getFileName());
+        resp.put("fileType", metadata.getFileType());
+        resp.put("fileSize", metadata.getFileSize());
+        resp.put("uploadPath", metadata.getUploadPath());
+        resp.put("processedPath", metadata.getProcessedPath());
+        resp.put("storagePath", metadata.getStoragePath());
+        resp.put("uploadTime", metadata.getUploadTime());
+        resp.put("processedTime", metadata.getProcessedTime());
+        resp.put("deviceId", metadata.getDeviceId());
+        resp.put("deviceName", metadata.getDeviceName());
+        resp.put("status", metadata.getStatus());
         return ResponseEntity.ok(resp);
     }
 
