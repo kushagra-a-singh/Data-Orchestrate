@@ -45,7 +45,7 @@ public class FileController {
             @RequestParam(value = "deviceId", required = false) String deviceId) throws IOException {
         FileMetadata metadata = fileUploadService.uploadFile(file, uploadedBy, deviceId, getDeviceIp());
         Map<String, Object> resp = new java.util.HashMap<>();
-        resp.put("fileId", metadata.getId());
+        resp.put("fileId", metadata.getFileId());
         resp.put("fileName", metadata.getFileName());
         resp.put("fileType", metadata.getFileType());
         resp.put("fileSize", metadata.getFileSize());
