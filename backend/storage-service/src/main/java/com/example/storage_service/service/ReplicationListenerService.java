@@ -45,8 +45,26 @@ public class ReplicationListenerService {
                 return ResponseEntity.status(400).body("fileName must be provided.");
             }
             log.info("[REPLICATION-LISTENER] Using fileName: {}, originalFileName: {}", fileName, originalFileName);
-            // Always use /api/files/download/{deviceId}/{fileName} for download
-            String downloadUrl = sourceUrl + "/api/files/download/" + deviceId + "/" + fileName;
+            // --- FIX: Always use file-upload-service port for download ---
+            // Get device info from DeviceConfigUtil
+            String fileUploadServiceUrl = null;
+            try {
+                // Try to get device info by deviceId
+                com.example.storage_service.model.DeviceInfo deviceInfo = deviceRepository.findById(deviceId).orElse(null);
+                if (deviceInfo != null) {
+                    java.util.Map<String, String> deviceMap = com.dataorchestrate.common.DeviceConfigUtil.getDeviceByName(deviceInfo.getDeviceName());
+                    if (deviceMap != null && deviceMap.get("ip") != null && deviceMap.get("file_upload_port") != null) {
+                        fileUploadServiceUrl = "http://" + deviceMap.get("ip") + ":" + deviceMap.get("file_upload_port");
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("[REPLICATION-LISTENER] Could not resolve file-upload-service URL for deviceId {}: {}", deviceId, ex.getMessage());
+            }
+            if (fileUploadServiceUrl == null) {
+                log.warn("[REPLICATION-LISTENER] Falling back to sourceUrl from request (may be wrong!): {}", sourceUrl);
+                fileUploadServiceUrl = sourceUrl;
+            }
+            String downloadUrl = fileUploadServiceUrl + "/api/files/download/" + deviceId + "/" + fileName;
             log.info("[REPLICATION-LISTENER] Attempting to download file from: {}", downloadUrl);
             org.springframework.http.ResponseEntity<byte[]> response = new org.springframework.web.client.RestTemplate().getForEntity(downloadUrl, byte[].class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
