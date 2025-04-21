@@ -22,6 +22,9 @@ Data Orchestrate supports containerized deployment using Docker and orchestratio
 - All core services (Kafka, Zookeeper, file-upload, processing, storage, notification, orchestrator) are containerized.
 - Use the provided `deployment/docker-compose.yml` to spin up the full stack for local or development use.
 
+![file_2025-04-18_16 22 56 1](https://github.com/user-attachments/assets/cf1c71ff-d480-48a2-98ec-c87570c982ab)
+
+
 **To start everything with Docker Compose:**
 ```bash
 docker-compose -f deployment/docker-compose.yml up --build -d
@@ -142,6 +145,9 @@ Each device entry contains the device name, IP, and service ports. Update this f
 4. **Synchronization:** The orchestrator-service ensures files are replicated to all connected devices, maintaining consistency.
 5. **Notifications:** Users receive real-time status updates via the notification-service and frontend.
 
+![file_2025-04-18_16 00 11 1](https://github.com/user-attachments/assets/8136fddb-7444-4af7-803d-c5eeea0785ae)
+
+
 ## Environment Variables
 
 Sample `.env`:
@@ -225,6 +231,8 @@ DEVICE_NAME=Kushagra
     ```bash
     ./kafka-topics.bat --list --bootstrap-server localhost:9092
     ```
+    ![file_2025-04-18_16 17 30 1](https://github.com/user-attachments/assets/e4c07ae9-e42a-48a3-b144-f65606eccf3f)
+
 3. Build the backend:
     ```bash
     cd backend
