@@ -39,11 +39,12 @@ public class FileController {
     private String deviceId;
 
     @PostMapping("/upload")
-    public ResponseEntity<FileMetadata> uploadFile(
+    public ResponseEntity<Map<String, Object>> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("uploadedBy") String uploadedBy) throws IOException {
-        FileMetadata metadata = fileUploadService.uploadFile(file, uploadedBy, deviceId, getDeviceIp());
-        return ResponseEntity.ok(metadata);
+            @RequestParam("uploadedBy") String uploadedBy,
+            @RequestParam(value = "deviceId", required = false) String deviceId) throws IOException {
+        Map<String, Object> resp = fileUploadService.uploadFileWithMeta(file, uploadedBy, deviceId, getDeviceIp());
+        return ResponseEntity.ok(resp);
     }
 
     @GetMapping("/{fileId}/download")
@@ -107,76 +108,15 @@ public class FileController {
     public ResponseEntity<Resource> downloadFileByDevice(
             @PathVariable String deviceId,
             @PathVariable String fileName) throws IOException {
-        // Defensive: decode fileName in case it's URL-encoded (spaces, special chars)
-        String decodedFileName = java.net.URLDecoder.decode(fileName, java.nio.charset.StandardCharsets.UTF_8);
-        log.info("[DOWNLOAD] Decoded fileName: {} for deviceId: {}", decodedFileName, deviceId);
-
-        // Always use the UUID (stored) fileName for lookup, not originalFileName
-        java.nio.file.Path uploadDirPath = java.nio.file.Paths.get(fileUploadService.getAbsoluteUploadDir());
-        java.nio.file.Path deviceDirPath = uploadDirPath.resolve(deviceId);
-
-        // First try direct path with the provided filename
-        java.nio.file.Path filePath = deviceDirPath.resolve(decodedFileName);
-        log.info("[DOWNLOAD] Checking direct file path: {}", filePath.toAbsolutePath());
-
-        boolean foundByDirectPath = java.nio.file.Files.exists(filePath);
-        if (!foundByDirectPath) {
-            log.warn("[DOWNLOAD] File not found at direct path: {}. Attempting metadata lookup by original filename.", filePath.toAbsolutePath());
-            // Try to find the file metadata by original filename
-            com.mpjmp.common.model.FileMetadata metadata = fileUploadService.findFileByOriginalName(deviceId, decodedFileName);
-            if (metadata != null && metadata.getFileName() != null) {
-                filePath = deviceDirPath.resolve(metadata.getFileName());
-                log.info("[DOWNLOAD] Found file by metadata, trying path: {}", filePath.toAbsolutePath());
-                foundByDirectPath = java.nio.file.Files.exists(filePath);
-            }
+        Path filePath = Paths.get(uploadDir, deviceId, fileName);
+        if (!Files.exists(filePath)) {
+            return ResponseEntity.notFound().build();
         }
-
-        if (!foundByDirectPath) {
-            // Enhanced: Log all files in device directory for diagnostics
-            try {
-                java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(deviceDirPath);
-                StringBuilder sb = new StringBuilder("[DOWNLOAD] Files present in deviceDirPath: ");
-                files.forEach(p -> sb.append(p.getFileName()).append(", "));
-                log.error(sb.toString());
-            } catch (Exception e) {
-                log.error("[DOWNLOAD] Could not list files in deviceDirPath: {}", deviceDirPath.toAbsolutePath(), e);
-            }
-            log.error("[DOWNLOAD] File NOT FOUND for deviceId: {}, fileName: {} (decoded: {}). Checked path: {}. Returning 404.", deviceId, fileName, decodedFileName, filePath.toAbsolutePath());
-            return ResponseEntity.status(404).body(null);
-        }
-
-        // --- FIX: fallback, if fileName is not found directly, try to match by original fileName in metadata ---
-        // This is already implemented above, but let's ensure we check both {UUID}_{originalFileName} and just originalFileName
-        // If fileName does not contain '_' (UUID), try to find a file that ends with _{fileName}
-        if (!foundByDirectPath && !decodedFileName.contains("_")) {
-            java.nio.file.DirectoryStream<java.nio.file.Path> stream = java.nio.file.Files.newDirectoryStream(deviceDirPath, "*_" + decodedFileName);
-            for (java.nio.file.Path candidate : stream) {
-                filePath = candidate;
-                foundByDirectPath = true;
-                log.info("[DOWNLOAD] Fallback: found file by suffix match: {}", filePath.toAbsolutePath());
-                break;
-            }
-            stream.close();
-        }
-        if (!foundByDirectPath) {
-            log.error("[DOWNLOAD] File NOT FOUND after fallback for deviceId: {}, fileName: {} (decoded: {}). Returning 404.", deviceId, fileName, decodedFileName);
-            return ResponseEntity.status(404).body(null);
-        }
-
-        java.io.InputStream inputStream = java.nio.file.Files.newInputStream(filePath);
-        org.springframework.core.io.InputStreamResource resource = new org.springframework.core.io.InputStreamResource(inputStream);
-        // Always set Content-Disposition to the original file name if possible
-        String originalFileName = decodedFileName;
-        // Try to get originalFileName from metadata
-        com.mpjmp.common.model.FileMetadata metadata = fileUploadService.findFileByOriginalName(deviceId, decodedFileName);
-        if (metadata != null && metadata.getOriginalFileName() != null) {
-            originalFileName = metadata.getOriginalFileName();
-        }
-        log.info("[DOWNLOAD] Serving file: {} as {}", filePath.toAbsolutePath(), originalFileName);
+        byte[] fileContent = Files.readAllBytes(filePath);
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + originalFileName + "\"")
-                .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
-                .body(resource);
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .body(new ByteArrayResource(fileContent));
     }
 
     @GetMapping("/device/id")
@@ -216,27 +156,30 @@ public class FileController {
     @PostMapping("/replicate-file")
     public ResponseEntity<String> replicateFile(@RequestBody Map<String, Object> replicationRequest) {
         try {
+            String fileId = (String) replicationRequest.get("fileId");
             String fileName = (String) replicationRequest.get("fileName");
-            String originalFileName = (String) replicationRequest.get("originalFileName");
+            String sourceDeviceUrl = (String) replicationRequest.get("sourceDeviceUrl");
             String deviceId = (String) replicationRequest.get("deviceId");
-            String contentBase64 = (String) replicationRequest.get("content");
-
-            if (fileName == null || deviceId == null || contentBase64 == null) {
-                return ResponseEntity.badRequest().body("Missing required fields");
+            // Download file from source device
+            java.net.URL url = new java.net.URL(sourceDeviceUrl + "/api/files/download/" + deviceId + "/" + fileName);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.connect();
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.io.InputStream is = conn.getInputStream()) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = is.read(buffer)) != -1) {
+                    baos.write(buffer, 0, bytesRead);
+                }
             }
-
-            byte[] fileContent = java.util.Base64.getDecoder().decode(contentBase64);
-            Path uploadPath = Paths.get(fileUploadService.getAbsoluteUploadDir(), deviceId);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
+            Path replicatedPath = Paths.get(uploadDir, "replicated", fileName);
+            if (!Files.exists(replicatedPath.getParent())) {
+                Files.createDirectories(replicatedPath.getParent());
             }
-            Path filePath = uploadPath.resolve(fileName);
-            Files.write(filePath, fileContent);
-            log.info("[REPLICATION] File received and saved at {} from device {}", filePath.toAbsolutePath(), deviceId);
-            // Optionally: Save metadata here if needed
-            return ResponseEntity.ok("Replication successful");
+            Files.write(replicatedPath, baos.toByteArray());
+            return ResponseEntity.ok("File replicated and saved to: " + replicatedPath.toAbsolutePath());
         } catch (Exception e) {
-            log.error("[REPLICATION] Error replicating file: {}", e.getMessage(), e);
             return ResponseEntity.status(500).body("Replication failed: " + e.getMessage());
         }
     }
