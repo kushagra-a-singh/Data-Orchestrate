@@ -24,4 +24,18 @@ public class DeviceRegistryService {
         device.setStatus(status);
         return deviceRepository.save(device);
     }
+
+    // --- ADDED: Get upload service URL for a deviceId ---
+    public String getUploadServiceUrl(String deviceId) {
+        // TODO: Ideally fetch from DB or config. For now, hardcode for demo.
+        // Kushagra (your machine): DEVICE-Inspiron-7415-2244B2DE3179 -> http://192.168.1.6:8081
+        // Anil Cerejo: DEVICE-AnilCerejo-SOMEID -> http://192.168.1.7:8081
+        if ("DEVICE-Inspiron-7415-2244B2DE3179".equals(deviceId)) {
+            return "http://192.168.1.6:8081";
+        } else if ("DEVICE-AnilCerejo-SOMEID".equals(deviceId)) {
+            return "http://192.168.1.7:8081";
+        }
+        // Fallback: null or throw error
+        return null;
+    }
 } 
