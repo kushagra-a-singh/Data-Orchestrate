@@ -1,7 +1,7 @@
 [
   {
     "name": "Kushagra",
-    "ip": "192.168.1.6",
+    "ip": "10.23.78.68",
     "port": "8081",
     "file_upload_port": "8081",
     "processing_port": "8083",
@@ -10,7 +10,7 @@
   },
   {
     "name": "Anil Cerejo",
-    "ip": "192.168.1.7",
+    "ip": "10.23.48.160",
     "port": "8081",
     "file_upload_port": "8081",
     "processing_port": "8083",
