@@ -48,7 +48,7 @@ public class FileReplicator {
 
     private List<String> getPeerDeviceUrls() {
         return peerDevices.stream()
-            .map(d -> "http://" + d.get("ip") + ":" + d.get("port"))
+            .map(d -> "http://" + d.get("ip") + ":" + d.get("storage_port"))
             .collect(Collectors.toList());
     }
 
@@ -120,6 +120,6 @@ public class FileReplicator {
 
     // Helper to get this device's base URL (auto-detects IP and port)
     private String getLocalDeviceUrl() {
-        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("file_upload_port");
+        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("storage_port");
     }
 }

@@ -19,7 +19,7 @@
   },
   {
     "name": "Third",
-    "ip": "192.168.1.6",
+    "ip": "192.168.1.9",
     "port": "8081",
     "file_upload_port": "8081",
     "processing_port": "8083",
