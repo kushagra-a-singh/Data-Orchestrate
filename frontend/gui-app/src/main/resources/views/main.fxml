@@ -30,13 +30,13 @@
                 <ProgressBar fx:id="progressBar" progress="0" style="-fx-accent: #3f8efc; -fx-background-radius: 8;" prefWidth="350"/>
                 <Label fx:id="statusLabel" text="Status: Waiting for file selection" style="-fx-text-fill: #b0b0b0; -fx-font-size: 14px;"/>
             </VBox>
-            <!-- Notification Center -->
+            <!-- Notification Center
             <VBox spacing="8" alignment="TOP_CENTER"
                 style="-fx-background-color: rgba(40,40,60,0.85); -fx-background-radius: 18; -fx-border-color: #3f8efc; -fx-border-radius: 18; -fx-effect: dropshadow(gaussian, #3f8efc, 12, 0.18, 0, 1);"
                 maxWidth="600" maxHeight="180">
                 <Label text="Notifications" style="-fx-font-size: 16px; -fx-font-family: 'Segoe UI Semibold'; -fx-font-weight: bold; -fx-text-fill: linear-gradient(to right,#3f8efc,#43b581);"/>
                 <ListView fx:id="notificationList" style="-fx-background-radius: 14; -fx-font-size: 14px; -fx-background-color: #181a20; -fx-text-fill: #fff;" maxHeight="120"/>
-            </VBox>
+            </VBox> -->
         </VBox>
     </center>
     <!-- Menu Bar -->
