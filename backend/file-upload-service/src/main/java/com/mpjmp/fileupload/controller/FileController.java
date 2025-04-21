@@ -145,6 +145,24 @@ public class FileController {
             return ResponseEntity.status(404).body(null);
         }
 
+        // --- FIX: fallback, if fileName is not found directly, try to match by original fileName in metadata ---
+        // This is already implemented above, but let's ensure we check both {UUID}_{originalFileName} and just originalFileName
+        // If fileName does not contain '_' (UUID), try to find a file that ends with _{fileName}
+        if (!foundByDirectPath && !decodedFileName.contains("_")) {
+            java.nio.file.DirectoryStream<java.nio.file.Path> stream = java.nio.file.Files.newDirectoryStream(deviceDirPath, "*_" + decodedFileName);
+            for (java.nio.file.Path candidate : stream) {
+                filePath = candidate;
+                foundByDirectPath = true;
+                log.info("[DOWNLOAD] Fallback: found file by suffix match: {}", filePath.toAbsolutePath());
+                break;
+            }
+            stream.close();
+        }
+        if (!foundByDirectPath) {
+            log.error("[DOWNLOAD] File NOT FOUND after fallback for deviceId: {}, fileName: {} (decoded: {}). Returning 404.", deviceId, fileName, decodedFileName);
+            return ResponseEntity.status(404).body(null);
+        }
+
         java.io.InputStream inputStream = java.nio.file.Files.newInputStream(filePath);
         org.springframework.core.io.InputStreamResource resource = new org.springframework.core.io.InputStreamResource(inputStream);
         // Always set Content-Disposition to the original file name if possible
