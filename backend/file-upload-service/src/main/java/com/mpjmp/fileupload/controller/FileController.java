@@ -109,33 +109,42 @@ public class FileController {
             @PathVariable String fileName) throws IOException {
         // Defensive: decode fileName in case it's URL-encoded (spaces, special chars)
         String decodedFileName = java.net.URLDecoder.decode(fileName, java.nio.charset.StandardCharsets.UTF_8);
-        log.info("[DOWNLOAD] Decoded fileName: {}", decodedFileName);
+        log.info("[DOWNLOAD] Decoded fileName: {} for deviceId: {}", decodedFileName, deviceId);
 
-        // --- CRITICAL: Always use the UUID (stored) fileName for lookup, not originalFileName ---
+        // Always use the UUID (stored) fileName for lookup, not originalFileName
         java.nio.file.Path uploadDirPath = java.nio.file.Paths.get(fileUploadService.getAbsoluteUploadDir());
         java.nio.file.Path deviceDirPath = uploadDirPath.resolve(deviceId);
-        
+
         // First try direct path with the provided filename
         java.nio.file.Path filePath = deviceDirPath.resolve(decodedFileName);
-        log.info("[DOWNLOAD] Resolved filePath: {}", filePath.toAbsolutePath());
-        
-        // If file doesn't exist, try to find it by querying the database
-        if (!java.nio.file.Files.exists(filePath)) {
-            log.warn("[DOWNLOAD] File not found at direct path: {}", filePath.toAbsolutePath());
+        log.info("[DOWNLOAD] Checking direct file path: {}", filePath.toAbsolutePath());
+
+        boolean foundByDirectPath = java.nio.file.Files.exists(filePath);
+        if (!foundByDirectPath) {
+            log.warn("[DOWNLOAD] File not found at direct path: {}. Attempting metadata lookup by original filename.", filePath.toAbsolutePath());
             // Try to find the file metadata by original filename
             com.mpjmp.common.model.FileMetadata metadata = fileUploadService.findFileByOriginalName(deviceId, decodedFileName);
             if (metadata != null && metadata.getFileName() != null) {
-                // Use the UUID filename from metadata
                 filePath = deviceDirPath.resolve(metadata.getFileName());
                 log.info("[DOWNLOAD] Found file by metadata, trying path: {}", filePath.toAbsolutePath());
+                foundByDirectPath = java.nio.file.Files.exists(filePath);
             }
         }
-        
-        if (!java.nio.file.Files.exists(filePath)) {
-            log.warn("[DOWNLOAD] File not found at path: {}", filePath.toAbsolutePath());
-            return ResponseEntity.notFound().build();
+
+        if (!foundByDirectPath) {
+            // Enhanced: Log all files in device directory for diagnostics
+            try {
+                java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(deviceDirPath);
+                StringBuilder sb = new StringBuilder("[DOWNLOAD] Files present in deviceDirPath: ");
+                files.forEach(p -> sb.append(p.getFileName()).append(", "));
+                log.error(sb.toString());
+            } catch (Exception e) {
+                log.error("[DOWNLOAD] Could not list files in deviceDirPath: {}", deviceDirPath.toAbsolutePath(), e);
+            }
+            log.error("[DOWNLOAD] File NOT FOUND for deviceId: {}, fileName: {} (decoded: {}). Checked path: {}. Returning 404.", deviceId, fileName, decodedFileName, filePath.toAbsolutePath());
+            return ResponseEntity.status(404).body(null);
         }
-        
+
         java.io.InputStream inputStream = java.nio.file.Files.newInputStream(filePath);
         org.springframework.core.io.InputStreamResource resource = new org.springframework.core.io.InputStreamResource(inputStream);
         // Always set Content-Disposition to the original file name if possible
@@ -145,6 +154,7 @@ public class FileController {
         if (metadata != null && metadata.getOriginalFileName() != null) {
             originalFileName = metadata.getOriginalFileName();
         }
+        log.info("[DOWNLOAD] Serving file: {} as {}", filePath.toAbsolutePath(), originalFileName);
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + originalFileName + "\"")
                 .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)

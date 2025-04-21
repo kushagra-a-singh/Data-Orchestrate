@@ -95,7 +95,12 @@ public class ReplicationListenerService {
                 return ResponseEntity.ok("File replicated and saved to: " + targetPath.toAbsolutePath());
             } else {
                 log.error("Failed to download file from {}: status {}", downloadUrl, response.getStatusCode());
-                return ResponseEntity.status(500).body("Failed to download file from source device.");
+                // Enhanced: If 404, log detailed info and suggest diagnostics
+                if (response.getStatusCodeValue() == 404) {
+                    log.error("[REPLICATION-LISTENER] 404 Not Found when attempting to replicate file. Possible causes: file does not exist on source, deviceId or fileName mismatch, or file not yet uploaded. URL: {}", downloadUrl);
+                    log.error("[REPLICATION-LISTENER] Diagnostics: deviceId='{}', fileName='{}', originalFileName='{}', sourceUrl='{}'", deviceId, fileName, originalFileName, sourceUrl);
+                }
+                return ResponseEntity.status(response.getStatusCodeValue()).body("Failed to download file from source device. Status: " + response.getStatusCode() + ". Check logs for diagnostics.");
             }
         } catch (Exception e) {
             log.error("Exception during file replication: {}", e.getMessage(), e);
