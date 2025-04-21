@@ -184,6 +184,35 @@ public class FileController {
         return ResponseEntity.ok(metadata);
     }
 
+    // --- REPLICATION ENDPOINT ---
+    @PostMapping("/replicate-file")
+    public ResponseEntity<String> replicateFile(@RequestBody Map<String, Object> replicationRequest) {
+        try {
+            String fileName = (String) replicationRequest.get("fileName");
+            String originalFileName = (String) replicationRequest.get("originalFileName");
+            String deviceId = (String) replicationRequest.get("deviceId");
+            String contentBase64 = (String) replicationRequest.get("content");
+
+            if (fileName == null || deviceId == null || contentBase64 == null) {
+                return ResponseEntity.badRequest().body("Missing required fields");
+            }
+
+            byte[] fileContent = java.util.Base64.getDecoder().decode(contentBase64);
+            Path uploadPath = Paths.get(fileUploadService.getAbsoluteUploadDir(), deviceId);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+            Path filePath = uploadPath.resolve(fileName);
+            Files.write(filePath, fileContent);
+            log.info("[REPLICATION] File received and saved at {} from device {}", filePath.toAbsolutePath(), deviceId);
+            // Optionally: Save metadata here if needed
+            return ResponseEntity.ok("Replication successful");
+        } catch (Exception e) {
+            log.error("[REPLICATION] Error replicating file: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body("Replication failed: " + e.getMessage());
+        }
+    }
+
     private String getDeviceIp() {
         // Implement logic to get device IP
         return "localhost"; // Placeholder

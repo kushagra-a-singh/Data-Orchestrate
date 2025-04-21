@@ -254,6 +254,18 @@ public class FileUploadService {
             replicationRequest.put("originalFileName", metadata.getOriginalFileName());
             replicationRequest.put("deviceId", metadata.getDeviceId());
             replicationRequest.put("sourceDeviceUrl", getSelfDeviceUrl());
+
+            // --- Read file content and encode as Base64 ---
+            String absUploadDir = getAbsoluteUploadDir();
+            Path filePath = Paths.get(absUploadDir, metadata.getDeviceId(), metadata.getFileName());
+            if (!Files.exists(filePath)) {
+                log.error("[REPLICATION] File not found for replication at {}", filePath.toAbsolutePath());
+                return;
+            }
+            byte[] fileBytes = Files.readAllBytes(filePath);
+            String fileContentBase64 = java.util.Base64.getEncoder().encodeToString(fileBytes);
+            replicationRequest.put("content", fileContentBase64);
+
             String requestJson = objectMapper.writeValueAsString(replicationRequest);
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
