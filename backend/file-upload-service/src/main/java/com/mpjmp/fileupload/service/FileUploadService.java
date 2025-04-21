@@ -287,16 +287,16 @@ public class FileUploadService {
     }
 
     private String getSelfDeviceUrl() {
-        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("port");
+        return "http://" + selfDevice.get("ip") + ":" + selfDevice.get("storage_port");
     }
 
     private List<String> getPeerDeviceUrls() {
         List<String> urls = new ArrayList<>();
         for (Map<String, String> d : peerDevices) {
             String ip = d.get("ip");
-            String port = d.get("port");
+            String port = d.get("storage_port");
             if (ip == null || port == null) {
-                log.warn("Skipping peer device with missing ip or port: {}", d);
+                log.warn("Skipping peer device with missing ip or storage_port: {}", d);
                 continue;
             }
             urls.add("http://" + ip + ":" + port);
